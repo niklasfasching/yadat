@@ -1,0 +1,10 @@
+* Yet Another Dat(omic|ascript|ahike) [[https://travis-ci.org/niklasfasching/yadat.svg?branch=master]]
+An attempt at a minimal datom-ish db.
+
+** goals
+- feature parity and then some
+- clean & elegant implementation
+- documentation
+
+** non-goals
+- speed

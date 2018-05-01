@@ -1,0 +1,413 @@
+* ToDo
+- https://github.com/subhash/clj-stack/wiki/Datomic-from-the-ground-up
+- performance tests using CC datasets, e.g. [[https://datacatalog.worldbank.org/search?sort_by=field_wbddh_modified_date&search_api_views_fulltext_op=AND&sort_order=DESC][worldbank]]
+- performance stuff with tufte - maybe smth like s/instrument to add p to all defns
+  or yourkit
+- explain why datoms are arrays rather than maps - actually forgot but there was some
+  good reason because i switched over from it
+- db.fn
+- handle rules, with, in
+- resolve-clause
+  - handle clause without var
+  - handle lookup-ref in pattern-clause (all clause types?)
+- schema validation
+  ensure isComponent is a reference
+  forbid many + unique in schema
+- db constraints - (unique/value) during insert
+- resolve doesn't exist in cljs ([[https://stackoverflow.com/questions/12020576/resolve-function-throws-an-error-in-clojurescript-but-not-clojure/12020663#12020663][stackoverflow q]]) - what now?
+- checkout data.avl
+- setup tests against datomic & datascript
+- benchmark performance
+- investigate [[https://github.com/datacrypt-project/hitchhiker-tree/][hitchhiker tree]] for storage / performance
+* optimization & rewriting
+on query optimization in datomic (hint: not done)
+https://groups.google.com/forum/#!msg/datomic/t7qKyVUqqqM/kPz4KSVqXuIJ
+https://groups.google.com/forum/#!msg/datomic/6VkADvLx-QU/ZLN9062Is6kJ
+
+many attributes must be in array! no guessing about entity id or not
+https://groups.google.com/forum/#!topic/datomic/HNrSp-RVK3w
+
+- something about subseq being fucking slow https://dev.clojure.org/jira/browse/CLJ-1008
+- async datascript does not bode well with react (?) https://github.com/tonsky/datascript/issues/22
+- other set implementation? datascript switched to b+ tree and got 3x
+  -> https://github.com/clojure/data.avl?
+
+* Explanation - defn docs that i'm still refining
+inner-join relations with shared variables: This reflects narrowing down the result set in bottom up evaluation.
+datalog query consists of where and find
+each where clause is resolved against the database
+where clauses that share variables are inner joined on those (unification) - this
+allows us to express complex query requirements
+the resulting, independent, relations are then cross joined (independent means the bindings can not be joined on some
+shared variable. the only sensible thing to do is to join each binding of relation A with each binding of relation B)
+
+the resulting relation contains all the variable bindings we need to answer the :find of the query
+#{{?var1 1 ?var2 2}
+  {?var1 3 ?var2 4}}
+
+We're not wroking on datoms (raw facts from the store) anymore but already on extracted data.
+this is required to allow using variables at different positions, i.e. first as the value, then as the id to link parent and child
+
+
+i want some documentation on what datalog actually is, what we do
+* querying
+Each pattern creates a set that binds the variables of that pattern
+when a pattern shares variable names with another pattern, the sets are inner-joined on those variables
+#+BEGIN_SRC clojure
+;; ?course-id is shared between the queries - inner join
+[?major-id :major/courses ?course-id]
+[?course-id :course/name ?course-name]
+#+END_SRC
+:in clause constants are resolved to relations as well {:symbols {?a 0}, :tuples [ [val] ]}
+
+each where clause is resolved to a relation
+#+BEGIN_SRC clojure
+{:symbols {var-name position} :tuples [[var-at-position-0 var-at-position-1 ...] ...]}
+#+END_SRC
+
+Build result set based on :find and :with vars list: do cartesian product on all relevant relations,
+leave just vars that matter from them, collect them into a set
+
+If there’s some aggregation happening, do group-by and run aggregation functions
+
+If pull() is used, call Pull API for each entity
+
+If find specifications are used, do post-processing: unwrap inner tuples, take first element from a set, etc.
+
+* reading & unsorted notes
+https://github.com/djjolicoeur/datamaps/blob/master/src/datamaps/pull.clj
+http://users.informatik.uni-halle.de/~brass/lp07/c7_magic.pdf
+on the magic set transformation https://souffle-lang.org/docs/magicset/
+https://semmle.com/download-files/sigmod08.pdf
+https://www.cs.cmu.edu/~fp/courses/15317-f17/lectures/18-datalog.pdf
+https://iccl.inf.tu-dresden.de/w/images/c/cc/DBT2016-Lecture-12.pdf
+datalog lectures http://pages.cs.wisc.edu/~paris/cs784-s17/lectures/lecture7.pdf (also 8.pdf & 9.pdf)
+
+https://github.com/travitch/datalog/blob/master/src/Database/Datalog/MagicSets.hs
+http://webdam.inria.fr/Alice/pdfs/Chapter-13.pdf
+http://www.ifis.cs.tu-bs.de/webfm_send/176 -> good
+
+http://www.cs.toronto.edu/~drosu/csc343-l7-handout6.pdf -> REALLY GOOD
+A rule is safe if each distinguished and nondistinguished variable appears in at least one nonnegated relational atom
+unsafe
+E(w) ← NOT Movies(t, y, l, c, s, p)
+Years(w) ← Movies(t, y, l, c, s, p) AND w < y
+in each case an infinity of w’s can satisfy the
+rule, even though Movies is a finite relation.
+
+datalog program is recursive if dependency graph has a cycle!
+
+naive solution for recursive (without negated)
+fixpoint search, i.e. eval rules on edb and idb until no change to idb
+negation and recursion makes no sense (?)
+
+stratified recursion: forbid negation in recursion: max negations to idb must be finite
+-> labeled dependency graph
+  - nodes: idb predicates
+  - edges:  from node1(predicate1) to node(predicate2) if
+and only if there is a rule with predicate1 in the head and
+predicate2 in the body. If predicate2 appears negated,
+label the edge with “-”.
+
+• The stratum of a node (predicate) is the
+maximum number of “-” labeled edges on
+a path leading from that node
+ A Datalog program is stratified if al its IDB
+predicates have finite strata.
+
+next: this http://infolab.stanford.edu/~ullman/fcdb/slides/slides14.pdf
+
+https://www.kde.cs.uni-kassel.de/lehre/ss2006/datenbanken/folien/Kapitel15.pdf <- do this! very good
+edb: extensional db (facts, relational data basis)
+deduktionskomponente: menge aus herleitungsregeln
+idb: intensional db (hergeleitete relationen, ausprägungen). result of application of rules to facts
+
+
+edb facts, idb rules (?)
+
+regel formel: q(A1,...An), q being name of base relation, intensional relation or built in predicate
+
+adorn = annotate bound / free
+magic set contains all possibly interesting constant values
+recursively calc using magic rules
+
+
+reachable adorned system: i.e. incorporate the query as rule and
+replace all predicate by it’s respective adornment
+
+we obtain multiple magic predicates for a
+single adorned predicate occurrence
+
+Every rule using an adorned IDB predicate in its body is augmented with an additional literal containing the respective magic set
+
+magic set:
+- query is part of program
+- reachable adorned system:  which terms are distinguished and propagate the resulting adornments. Reachable adorned system contains separated adorned predicate occurrences
+- magic set for each adorned predicate occurrence
+
+
+i should try first to use datascripts existing query engine
+-> use that in tests for validation
+-> build my own with that and the datomic docs
+
+for starters i should focus on where
+- :find is only post-processing of results
+- :in is advanced customization
+- :with as well
+
+- :where
+  #+BEGIN_SRC clojure
+  :where [[?e :user/firstName ?fname]
+          [?e :user/secondName ?sname]]
+  #+END_SRC
+needs
+- query plan for each clause
+  query plan is based on what is variable and what is constant
+
+- join plan for all clauses based on shared variables
+- that's it
+
+rule is safe (i.e. result is not infinite) when all variables in head are finite
+- variable must be in body inside at least one non built in predicate (i.e. one real relation. function predicates are infinite)
+- variable is assigned a constant or another finite set
+
+
+
+evaluation is expanding
+* notes
+** https://www.cse.buffalo.edu/~chomicki/636/handout-datalog.pdf
+Closed World Assumption: what is not implied by the logic program is false (rather than unknown)
+graph:
+vertices: predicates
+edges:
+- positive (p, q) if there is a clause in P in which q appears in a positive atom in the body and p appears in the head
+- negative (p, q) if there is a clause in P in which q appears in a negative atom in the body and p appears in the head
+
+stratified: No cycle in pdg(P) contains a negative edge.
+
+datalog without not is monotonic, i.e. adding facts can not remove but only add to result of Q
+
+** What You Always Wanted to Know About Datalog [[https://pdfs.semanticscholar.org/9374/f0da312f3ba77fa840071d68935a28cba364.pdf][(Ceri, 1989)]]
+Lo :- L1, ..., Ln
+Li, is a literal of the form pi ( tl, ... , tk)
+p is a predicate symbol, t are terms
+terms are either constant or variable
+
+left-hand-side (lhs) of datalog clause is head, right-hand-side (rhs) is body
+body may be empty - clause without body is a fact
+clause with at least one literal in the body is a rule
+
+father(bob, john) represents a fact (John is the father of Bob)
+grandparent(Z, X) :- parent( Y, X), parent(Z, Y) represents a rule (If X is a parent of Y AND if Y is a parent of Z, then X is a grandparent of Z)
+
+grandparent, parent & father are *predicate symbols*
+john and bob are *constants*
+X, Y and Z are *variables*
+
+datalog programn P must satisfy the following safety conditions (to ensure the set of facts that can be derived is finite)
+- Each fact of P is ground
+- Each variable which occurs in the head of a rule of P must also occur in the body of the same rule
+
+A literal, fact, rule, or clause which does not contain any variables is called ground.
+The set of ground facts forms the extensional database (EDB)
+the datalog program P (~ set of rules) forms the intensional database (IDB)
+
+head predicate of each clause in P must be an IDB-predicate. EDB-predicates may only occur in clause bodies.
+each edb predicate corresponds to a relation (table) -> stored as a tuple
+
+predicates of P are IDB-relations / derived relations - correspond to relational view
+
+when interested in a subset of an idb relation
+-> specify goal using literal preceded by "?-", e.g.  ?-sgc(ann, X)
+-> goal ~ query against view (view being the idb relation)
+
+evaluation
+
+top-down: rule as problem-generator, each rule as a problem that must be solved
+initial goal is matched with lhs of rule and generates rhs of that rule as new problems
+but with this kind of evaluation  more natural to produce answer one tuple at the time => not good
+
+also: breadth vs depth first
+depth-first: order of literals affects performance
+breadth-first: result of computation not affected by order of predicates within rhs or order of rules!
+
+
+bottom-up: rule as production => apply to all facts in edb. does not take into account constants in goal predicate => wasteful
+bottom-up:
+inefficiencies: 1. reproducing same facts in dependent sets (?) 2. ignores constants from queries -> produces unnecessary facts
+
+magic set:
+rewrite program into larger one
+additional idb that require some additional conditions to be satisfied
+used in bottom-up
+
+*READ AGAIN* (p10-11)
+
+to ensure safety (i.e. finite result set of intensional):
+each variable argument to a fn (representing an infinite set) must also occur as an argument to a predicate (-> relation, finite set)
+in same rule body or be bound to a constant
+evaluation of builtin predicate must be deferred until all its arguments are bound to constants!
+excption equality predicate, execute as soon as one arg is bound
+
+negative:
+for safety reasons each variable in negative literal of rule body must also be in positive literal of same body
+
+stratified datalog
+
+** Logic Programming (History) [[https://www.doc.ic.ac.uk/~rak/papers/History.pdf][Kowalski]]
+Horn clauses
+A0 ← A1 ∧ . . . ∧ An where n ≥ 0.
+← = if
+∧ = and
+A0 = conclusion - an empty body evaluates to true and can be omitted. A0 is then called a fact
+If A0 is omitted it is false. Such clauses are goal clauses
+goal can be understood as denying A1 ∧ ... ∧ An has a solution -> challenge to refute denial by finding solution
+Ai = p(t1, ..., tm), with p = predicate and t = terms
+predicates are the relations (defined or computed) of a program
+functions are treated as special case of relation (computed)
+function can be translated to
+
+each term is either a constant, variable or composite term fn(t1, ..., tm)
+terms can contain variables.
+any expression x (horn clause, term, ...) without variables is called ground x
+variables in terms are universally qualified (?) scoped to horn clause it occurs in
+
+
+datalog is a logic program without function symbols -> decidable
+with functions it would be turing complete and undecidable
+
+datalog enough for databases and a lot of other shit
+e.g. and or trees can be represented as horn clauses
+
+pure datalog is monotonic (i.e. clauses cannot take away from results, only add) (?)
+negation makes datalog non-monotonic
+
+negation requires horn clauses to be extended to
+A0 ← A1 ∧ ... ∧ An ∧ not B1 ∧ ... ∧ not Bm where n ≥ 0 and m ≥ 0.
+atomic formulas and their negations are called literals
+
+sets of clauses in this form are called normal logic program
+horn clause program: horn clauses without negation
+normal logic program: horn clauses with negation
+
+- top-down: clauses in P as goal-oriented reduction procedures to derive G
+  fits both declarative and procedural representation (?)
+- bottom-up: generate new conlusions from existing conlusions until the conclusions
+  contain all information required to solve G in one step
+  ~= generating a model in which G is true
+  natural fit to declarative representation (?)
+
+solving for G is hard in hornclauses, even harder in horn clause with negation
+
+resolution mehtod
+refutation procedure (reductio ad adsurdum)
+convert P and negation of G into set of clauses, derive empty clause
+(representing falsity)
+
+Clauses are
+- disjunctions of literals
+- represented as sets
+
+it if there is any substitution that unifies K and L, then there is a most general such unifying
+substitution, which is unique up to renaming of variables.
+
+set notation of clauses is not user friendly. more common to write as disjunctions
+{A1, . . . , An, ¬B1, . . . , ¬Bm} => A1∨. . .∨An ∨¬B1∨. . .∨¬Bm. H
+
+e.g. to find capital of usa ∃Xcapital(X, usa) is negated and the answer literal added
+=> ¬capital(X, usa) ∨ answer(X)
+
+proof procedure: 1. inference system (space of all proofs) 2. search strategy (for solution to goal in proof space)
+proof procedure = proof space + search strategy
+A typical proof space has the structure of an and-or tree turned upside down
+resolution: breadth/depth first (or heuristic but meh)
+
+- hyper-resolution
+  derives new clauses from the input clauses, without paying attention to the problem to be solved
+  ignores goal until it resolves it
+
+If the top clause C0
+represents an initial goal, then the tree of all linear derivations is a goal tree, and
+generating the tree top-down is a form of goal-reduction.
+The development of various forms of linear resolution with set of support and
+ordering restrictions brought resolution systems closer to Planner-like theoremprovers.
+
+unification: ground terms are equal if syntactically equal
+
+
+read again pg 24-25 comparison to arithmetic
+
+To make model generation relevant
+to the query, Datalog uses transformations such as Magic Sets [Bancilhon, et al
+1985] to incorporate the query into the transformed database rules.
+
+stratified negation
+The simplest example of a stratified logic program is that of a deductive database
+E ∪ I whose predicates are partitioned into extensional predicates, defined by
+facts E, and intensional predicates, defined in terms of the extensional predicates
+by facts and rules I.
+. Consider, for example, a network of nodes, some of whose links
+at any given time may be broken14. This can be represented by an extensional
+database, say:
+E: link(a, b) link(a, c) link(b, c) broken(a, c)
+Two nodes in the network are connected if there is a path of unbroken links. This
+can be represented intensionally by the clauses:
+I: connected(X, Y ) ← link(X, Y ) ∧ not broken(X, Y )
+connected(X, Y ) ← connected(X, Z) ∧ connected(Z, Y )
+The conditions of the first clause in I are completely defined by E. So they can
+be evaluated independently of I. The use of E to evaluate these conditions results
+in a set of Horn clauses I
+′
+, which intuitively has the same meaning as I in the
+context of E:
+I
+′
+: connected(a, b) connected(b, c)
+connected(X, Y ) ← connected(X, Z) ∧ connected(Z, Y )
+
+The natural, intended model of the original deductive database E ∪ I is the
+minimal model M of the resulting set of Horn clauses E ∪ I
+′
+:
+M: link(a, b) link(a, c) link(b, c) broken(a, c)
+connected(a, b) connected(b, c) connected(a, c)
+
+*pg 27 explains stratification*
+
+Having recognised the problem, a number of authors proposed further refinements
+of stratification. However, it now seems to be generally agreed that these
+refinements are superseded by the well-founded semantics of [Van Gelder, Ross and
+Schlipf 1991]. In particular, [Denecker et al., 2001] argues that the well-founded
+semantics “provides a more general and more robust formalization of the principle
+of iterated inductive definition that applies beyond the stratified case.”
+
+ASP most advanced, does not allow functions (but i don't want those afaik - only filter)
+
+
+** next
+https://iccl.inf.tu-dresden.de/w/images/1/1c/Vlog-datalog-materialization-aaai2016.pdf
+
+https://mobisocial.stanford.edu/papers/icde13.pdf -> implementation
+
+
+https://ac.els-cdn.com/S0004370212000562/1-s2.0-S0004370212000562-main.pdf?_tid=edfa5b15-57a0-47ff-89a0-e6ed307ede8d&acdnat=1525348061_dab4112845d58061aee422fe5b7703c0
+magic set thing with pseudo code implementation!
+
+2.4. Magic Sets for Datalog programs on 161
+
+
+The goal of the original Magic Set method (defined for non-disjunctive Datalog programs) is to exploit the presence
+of constants in a query for restricting the possible search space by considering only a subset of a hypothetical program
+instantiation that is sufficient to answer the query in question. In order to do this, a top–down computation for answering
+the query is simulated in an abstract way.
+* Resources
+- https://github.com/mixu/datalog.js
+- https://github.com/rntz/datafun/blob/master/mini-datafun.rkt
+- https://github.com/frankmcsherry/blog/blob/master/posts/2018-05-19.md
+- http://fkettelhoit.github.io/bottom-up-datalog-js/docs/dl.html
+- http://tonsky.me/blog/datascript-internals/
+- [[https://github.com/richhickey/clojure-contrib/tree/master/src/main/clojure/clojure/contrib/datalog][clojure.contrib datalog implementation]]
+- https://github.com/aosabook/500lines/tree/master/functionalDB
+- https://docs.datomic.com/on-prem/indexes.html
+- https://docs.datomic.com/on-prem/architecture.html
+- https://gist.github.com/wernsey/b813ba7dac135937119b8d455375a33d
