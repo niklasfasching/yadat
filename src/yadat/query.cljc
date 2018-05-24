@@ -118,6 +118,9 @@
 (defmethod resolve-find-element :variable [db row element]
   (get row element))
 
+(defmethod resolve-find-element :aggregate [db row element]
+  (throw (ex-info "Not implemented" {})))
+
 (defmethod resolve-find-element :pull [db row element]
   (let [[_ variable pattern] element
         eid (get row variable)]
