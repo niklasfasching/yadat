@@ -1,4 +1,5 @@
 (ns yadat.relation
+  (:refer-clojure :exclude [merge])
   (:require [clojure.set :as set]))
 
 (defrecord Relation [id columns rows])
@@ -14,7 +15,7 @@
   "Cross joins (cartesian product) relations `r1` & `r2`. Returns a relation."
   [{cs1 :columns rs1 :rows :as r1} {cs2 :columns rs2 :rows :as r2}]
   (let [columns (set/union cs1 cs2)
-        rows (for [b1 rs1 b2 rs2] (merge b1 b2))]
+        rows (for [b1 rs1 b2 rs2] (into b1 b2))]
     (relation columns rows)))
 
 (defn inner-join

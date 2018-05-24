@@ -39,13 +39,6 @@
         datoms (db/select db query-datom)]
     (into entity [(datoms->av db attribute datoms)])))
 
-(defn resolve-pull [db eid pattern]
-  (loop [entity {:db/id eid}
-         [x & xs] pattern]
-    (if (and (nil? x) (nil? xs))
-      entity
-      (recur (resolve-attribute-spec db entity x) xs))))
-
 ;; (defmethod resolve-attribute-spec :map [db entity spec]
 ;;   ;; map means sub-pull (?) - must take care of cardinality (many? in array, not replace)
 ;;   ;; assuming it's a ref
@@ -54,6 +47,15 @@
 ;;         v (if eid (resolve-pull db eid pattern))
 ;;         entity (if (empty? v) entity (assoc entity a v))]
 ;;     (recur entity xs)))
+
+(defn resolve-pull [db eid pattern]
+  (loop [entity {:db/id eid}
+         [x & xs] pattern]
+    (if (and (nil? x) (nil? xs))
+      entity
+      (recur (resolve-attribute-spec db entity x) xs))))
+
+
 
 ;; (defn pull [db eid pattern]
 ;;   ;; lookup-refs and stuff in the pull api outside query

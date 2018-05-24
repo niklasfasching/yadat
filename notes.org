@@ -1,4 +1,5 @@
 * ToDo
+- make an api namespace that exposes everything i need
 - https://github.com/subhash/clj-stack/wiki/Datomic-from-the-ground-up
 - performance tests using CC datasets, e.g. [[https://datacatalog.worldbank.org/search?sort_by=field_wbddh_modified_date&search_api_views_fulltext_op=AND&sort_order=DESC][worldbank]]
 - performance stuff with tufte - maybe smth like s/instrument to add p to all defns
