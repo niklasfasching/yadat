@@ -14,6 +14,6 @@
     f
     (throw (ex-info "Could not resolve function" {:f fn-symbol}))))
 
-(defn ->clj [x]
-  #?(:clj x
-     :cljs (walk/postwalk walk/keywordize-keys (js->clj x))))
+;; (defn ->clj [x]
+;;   #?(:clj x
+;;      :cljs (walk/postwalk walk/keywordize-keys (js->clj x))))

@@ -1,6 +1,11 @@
 * ToDo
 - js interop
+  will make using this ad-hoc in blogs possible
   tests http://blog.testdouble.com/posts/2015-10-12-configure-leiningen-for-clojurescript-and-clojure-testing
+
+  -> js-api mirrors api but converts back and forward
+
+- pull
 - reverse ref in pull / elsewhere
 - handle clause without var
 - handle lookup-ref in pattern-clause (all clause types?)

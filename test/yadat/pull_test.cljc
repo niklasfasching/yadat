@@ -44,7 +44,9 @@
                              [1 :email "foo@example.com"]
                              [1 :comments 2]
                              [1 :comments 3]
+                             [3 :content "comment 3"]
+                             [2 :content "comment 2"]
                              [1 :address 4]])
-      entity (pull/resolve-attribute-spec db {:db/id 1} :name)
+      entities (pull/resolve-attribute-spec db {:db/id 1} '{:comments [*]})
       ]
-  entity)
+  entities)

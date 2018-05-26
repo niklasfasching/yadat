@@ -120,7 +120,7 @@
                                '#{{?id 1 ?name "Foo" ?key :Foo}
                                   {?id 2 ?name "Bar" ?key :Bar}
                                   {?id 3 ?name "Baz" ?key :Baz}})
-          result (query/resolve-find-spec nil relation '[[?name ...]])]
+          result (query/resolve-find-spec nil relation '[[(pull ?name [*]) ...]])]
       (is (= result ["Baz" "Bar" "Foo"]))))
 
   (testing "tuple"
@@ -130,7 +130,6 @@
                                   {?id 3 ?name "Baz" ?key :Baz}})
           result (query/resolve-find-spec nil relation '[[?id ?name]])]
       (is (= result [3 "Baz"])))))
-
 
 (deftest resolve-find-element-test
   (testing "variable"

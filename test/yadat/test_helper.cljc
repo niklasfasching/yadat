@@ -1,6 +1,7 @@
 (ns yadat.test-helper
   (:require  [clojure.test :as t]
-             [yadat.db :as db]))
+             [yadat.db :as db]
+             [yadat.db.minimal-db]))
 
 (def recipe-schema {:recipe/author [:reference]
                     :recipe/ingredients [:reference :many]
