@@ -30,4 +30,4 @@
 (defn ^:export slurp [t f]
   (-> (js/fetch f)
       (.then (fn [response] (.text response)))
-      (.then (fn [edn] (db/deserialize (keyword t) edn)))))
+      (.then (fn [edn] (atom (db/deserialize (keyword t) edn))))))

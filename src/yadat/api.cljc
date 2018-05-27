@@ -35,8 +35,8 @@
 ;;         connection (atom (db/deserialize t edn))]
 ;;     connection))
 
-;; (defn spit
-;;   "Spit `db` into `f`.
-;;   See `clojure.java.io/writer` for a list of supported values for `f`."
-;;   [db f]
-;;   (clojure.core/spit f (db/serialize @db)))
+(defn spit
+  "Spit `db` into `f`.
+  See `clojure.java.io/writer` for a list of supported values for `f`."
+  [db f]
+  (clojure.core/spit f (db/serialize @db)))

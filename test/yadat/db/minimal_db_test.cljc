@@ -24,3 +24,11 @@
 
 (deftest select-test
   )
+
+(let [db (-> (db/open :minimal {})
+             (db/insert [1 :name "Hans"])
+             (db/insert [2 :name "Heidi"]))
+      db (db/deserialize :minimal (db/serialize db))]
+  (spit "../yadat/resources/minimal.edn" (db/serialize db))
+  (db/serialize db)
+  )

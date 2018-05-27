@@ -80,7 +80,10 @@
       :else (throw (ex-info "Invalid select" {:datom datom}))))
 
   (serialize [this]
-    (pr-str this)))
+    (binding [*print-length* nil
+              *print-level* nil
+              *print-namespace-maps* nil]
+      (pr-str this))))
 
 (defn sorted-datom-set
   "Returns a sorted-set (see `make-datom-comparator`).

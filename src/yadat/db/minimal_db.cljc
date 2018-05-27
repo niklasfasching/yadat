@@ -26,8 +26,10 @@
                          :else true))
                      true (map vector datom %)) set))
   (serialize [this]
-    (pr-str this)))
-
+    (binding [*print-length* nil
+              *print-level* nil
+              *print-namespace-maps* nil]
+      (pr-str this))))
 (defmethod db/open :minimal [_ schema]
   (->MinimalDb #{} schema 0))
 
