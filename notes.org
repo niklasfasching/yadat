@@ -4,25 +4,9 @@ reagent would be nice for this - but is so much work to setup
 then again...
 what's the goal...
 * ToDo
-
-
-;; ----------------------------------------------------------------------------
-;; define data-readers to be made available to EDN readers. in CLJS
-;; they're magically available. in CLJ, data_readers.clj may or may
-;; not work, but you can always simply do
-;;
-;;  (clojure.edn/read-string {:readers datascript/data-readers} "...")
-;;
-
-(def data-readers {'datascript/Datom db/datom-from-reader
-                   'datascript/DB    db/db-from-reader})
-
-#?(:cljs
-   (doseq [[tag cb] data-readers] (cljs.reader/register-tag-parser! tag cb)))
-
-
 - spit/slurp in cljs, js - java is easy
 - sorted-set does not support non-comparable, non-reference many values
+  same for datascript though
 - db
   - db.fn
   - constraints (unique/value) during insert
@@ -40,6 +24,7 @@ what's the goal...
   - reverse-ref, lookup-ref everywhere
   - cljs does not have real resolve ([[https://stackoverflow.com/questions/12020576/resolve-function-throws-an-error-in-clojurescript-but-not-clojure/12020663#12020663][stackoverflow q]]) - what do
 - tests
+  - tests for default db implementations
   - standardize test data, use same type of data everywhere
     - ancestry - e.g. {siblings, parents}
     - https://github.com/arangodb/example-datasets

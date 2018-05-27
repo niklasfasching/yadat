@@ -29,7 +29,7 @@
     (binding [*print-length* nil
               *print-level* nil
               *print-namespace-maps* nil]
-      (pr-str this))))
+      (prn-str this))))
 (defmethod db/open :minimal [_ schema]
   (->MinimalDb #{} schema 0))
 

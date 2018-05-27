@@ -14,13 +14,13 @@
                 (cmp (get datom1 i) (get datom2 i))))
             0 [i1 i2 i3])))
 
-;; clojurescript does not have .seqFrom - figure that out
 (defn select-datoms
   "Returns collection of sequential datoms matching `datom` from `index`."
   [index datom]
-  (let [cmp (:select-compare (meta index))]
-    (take-while (fn [next-datom] (= (cmp datom next-datom) 0))
-                (.seqFrom index datom true))))
+  (let [s #?(:clj (.seqFrom index datom true)
+             :cljs (-sorted-seq-from index datom true))
+        cmp (:select-compare (meta index))]
+    (take-while (fn [next-datom] (= (cmp datom next-datom) 0)) s)))
 
 (defn indexing? [db a]
   (or (db/is? db a :unique-identity)
@@ -83,7 +83,7 @@
     (binding [*print-length* nil
               *print-level* nil
               *print-namespace-maps* nil]
-      (pr-str this))))
+      (prn-str {:schema schema :eav eav :eid eid}))))
 
 (defn sorted-datom-set
   "Returns a sorted-set (see `make-datom-comparator`).
@@ -105,11 +105,9 @@
                  schema 0))
 
 (defmethod db/deserialize :sorted-set [_ edn]
-  (let [readers {'yadat.db.sorted_set_db.SortedSetDb
-                 (fn [raw-db]
-                   (let [db (db/open :sorted-set (:schema raw-db))]
-                     (assoc db
-                            :eav (into (:eav db) (:eav raw-db))
-                            :aev (into (:aev db) (:aev raw-db))
-                            :ave (into (:ave db) (:ave raw-db)))))}]
-    (util/read-string readers edn)))
+  (let [{:keys [eav schema eid]} (util/read-string {} edn)
+        db (db/open :sorted-set schema)]
+    (assoc db
+           :eav (into (:eav db) eav)
+           :aev (into (:aev db) eav)
+           :ave (into (:ave db) (filter (fn [[_ a _]] (indexing? db a)) eav)))))
