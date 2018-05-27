@@ -10,7 +10,7 @@
                                          :output-to "target/main.js"}}
                        :js {:source-paths ["src"]
                             :compiler {:main yadat.js-api
-                                       :optimizations :advanced
+                                       :optimizations :whitespace
                                        :pretty-print true
                                        :output-to "resources/main.js"}}}}
   :target-path "target/%s")

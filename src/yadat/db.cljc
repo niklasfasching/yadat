@@ -1,6 +1,5 @@
 (ns yadat.db
-  (:require [clojure.edn :as edn]
-            [clojure.set :as set]))
+  (:require [clojure.set :as set]))
 
 (defprotocol Db
   "A database for datoms."

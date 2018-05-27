@@ -1,5 +1,8 @@
 (ns yadat.util
-  (:require [clojure.walk :as walk]))
+  (:refer-clojure :exclude [read-string])
+  (:require #?(:clj [clojure.edn :as edn]
+               :cljs [cljs.reader :as edn])
+            [clojure.walk :as walk]))
 
 (defn resolve-symbol
   "symbol needs to be namespaced as resolve looks in the current environment and
@@ -14,6 +17,5 @@
     f
     (throw (ex-info "Could not resolve function" {:f fn-symbol}))))
 
-;; (defn ->clj [x]
-;;   #?(:clj x
-;;      :cljs (walk/postwalk walk/keywordize-keys (js->clj x))))
+(defn read-string [readers edn]
+  (edn/read-string {:readers readers} edn))

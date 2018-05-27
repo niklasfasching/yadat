@@ -1,6 +1,6 @@
 (ns yadat.db.minimal-db
   (:require [yadat.db :as db]
-            [clojure.edn :as edn]))
+            [yadat.util :as util]))
 
 (defrecord MinimalDb [set schema eid]
   db/Db
@@ -32,7 +32,7 @@
   (->MinimalDb #{} schema 0))
 
 (defmethod db/deserialize :minimal [_ edn]
-  (edn/read-string
-   {:readers {'yadat.db.minimal_db.MinimalDb
-              (fn [{:keys [set schema eid]}]
-                (->MinimalDb set schema eid))}} edn))
+  (let [readers {'yadat.db.minimal_db.MinimalDb
+                 (fn [{:keys [set schema eid]}]
+                   (->MinimalDb set schema eid))}]
+    (util/read-string readers edn)))

@@ -1,6 +1,6 @@
 (ns yadat.db.sorted-set-db
-  (:require [clojure.edn :as edn]
-            [yadat.db :as db]))
+  (:require [yadat.db :as db]
+            [yadat.util :as util]))
 
 (defn make-datom-comparator
   "Returns a comparator. Compares datom fields `i1`-`i3` in order using `cmp`.
@@ -102,11 +102,11 @@
                  schema 0))
 
 (defmethod db/deserialize :sorted-set [_ edn]
-  (edn/read-string
-   {:readers {'yadat.db.sorted_set_db.SortedSetDb
-              (fn [raw-db]
-                (let [db (db/open :sorted-set (:schema raw-db))]
-                  (assoc db
-                         :eav (into (:eav db) (:eav raw-db))
-                         :aev (into (:aev db) (:aev raw-db))
-                         :ave (into (:ave db) (:ave raw-db)))))}} edn))
+  (let [readers {'yadat.db.sorted_set_db.SortedSetDb
+                 (fn [raw-db]
+                   (let [db (db/open :sorted-set (:schema raw-db))]
+                     (assoc db
+                            :eav (into (:eav db) (:eav raw-db))
+                            :aev (into (:aev db) (:aev raw-db))
+                            :ave (into (:ave db) (:ave raw-db)))))}]
+    (util/read-string readers edn)))

@@ -26,3 +26,8 @@
 (defn ^:export query [connection query-string]
   (let [query (reader/read-string query-string)]
     (clj->js (query/q @connection query))))
+
+(defn ^:export slurp [t f]
+  (-> (js/fetch f)
+      (.then (fn [response] (.text response)))
+      (.then (fn [edn] (db/deserialize (keyword t) edn)))))

@@ -27,10 +27,16 @@
   [connection query]
   (query/q @connection query))
 
-(defn slurp [t f]
-  (let [edn (clojure.core/slurp f)
-        connection (atom (db/deserialize t edn))]
-    connection))
+;; (defn slurp
+;;   "Read db of type `t` from `f`.
+;;   See `clojure.java.io/reader` for a list of supported values for `f`."
+;;   [t f]
+;;   (let [edn (clojure.core/slurp f)
+;;         connection (atom (db/deserialize t edn))]
+;;     connection))
 
-(defn spit [db f]
-  (clojure.core/spit f (db/serialize @db)))
+;; (defn spit
+;;   "Spit `db` into `f`.
+;;   See `clojure.java.io/writer` for a list of supported values for `f`."
+;;   [db f]
+;;   (clojure.core/spit f (db/serialize @db)))

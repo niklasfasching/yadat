@@ -29,47 +29,12 @@
 
     <script src="main.js" type="text/javascript"></script>
     <script type="text/javascript">
-     /* const schema = {
-      *   id: {
-      *     "db/unique": "db.unique/identity"
-      *   },
-      *   sections: {
-      *     "db/type": "db.type/ref",
-      *     "db/cardinality": "db.cardinality/many",
-      *   },
-      *   modules: {
-      *     "db/type": "db.type/ref",
-      *     "db/cardinality": "db.cardinality/many"
-      *   },
-      *   courses: {
-      *     "db/type": "db.type/ref",
-      *     "db/cardinality": "db.cardinality/many"
-      *   },
-      * }; */
-     // const db = yadat.js_api.open("sorted-set", schema);
-     const db = yadat.js_api.open("minimal", {
-       id: ["unique-identity"],
-       sections: ["reference", "many"],
-       modules: ["reference", "many"],
-       courses: ["reference", "many"],
-     })
-
-     yadat.js_api.slurp('minimal', './human-factors-moses.json').then((connection) => {
-
-     })
-
-     const majorInsert = fetch('./human-factors-moses.json')
-       .then(response => response.json())
-       .then(major => yadat.js_api.insert(db, [major]));
-     /*
-      *      const coursesInsert = fetch('./human-factors-lsf.json')
-      *        .then(response => response.json())
-      *        .then(courses => yadat.js_api.insert(db, courses)); */
-     const coursesInsert = Promise.resolve()
-     Promise.all([majorInsert, coursesInsert]).then(() => {
-       console.log("loaded")
-       executeQuery();
-     });
+     yadat.js_api
+          .slurp('minimal', './human-factors.edn')
+          .then((db) => {
+            window.db = db;
+            executeQuery();
+          })
 
      function executeQuery() {
        const query = document.querySelector("#query").value;
