@@ -4,7 +4,10 @@
             [yadat.db.minimal-db]
             [yadat.db.sorted-set-db]
             [yadat.query :as query]
-            [yadat.util :as util]))
+            [yadat.util :as util]
+            [yadat.find :as find]
+            [yadat.where :as where]
+            [yadat.relation :as r]))
 
 (defn open
   "Create a new db of `type` with `schema`. Returns a connection.
@@ -24,8 +27,12 @@
 (defn query
   "Queries `connection` for `query` map.
   In cljs query map must be provided as an edn string."
-  [connection query]
-  (query/q @connection query))
+  [connection {:keys [find where] :as query}]
+  (let [relations (where/resolve-clauses @connection '() where)
+        relation (r/merge relations r/inner-join)]
+    (find/resolve-spec @connection relation find)))
+
+;; (defn pull [db eid pattern])
 
 ;; (defn slurp
 ;;   "Read db of type `t` from `f`.
