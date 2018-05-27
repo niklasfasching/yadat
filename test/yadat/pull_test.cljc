@@ -19,7 +19,7 @@
                      :lastname "Bar"
                      :email "foo@example.com"
                      :address {:db/id 4}
-                     :comments #{{:db/id 2} {:db/id 3}}}))))
+                     :comments [{:db/id 2} {:db/id 3}]}))))
 
   (testing "attribute"
     (let [db (test-helper/db-of {:comments [:reference :many]
@@ -35,18 +35,19 @@
       (is (= entity-name {:db/id 1
                           :name "Foo"}))
       (is (= entity-comments {:db/id 1
-                              :comments #{{:db/id 2} {:db/id 3}}})))))
+                              :comments [{:db/id 2} {:db/id 3}]})))))
 
 (let [db (test-helper/db-of {:comments [:reference :many]
+                             :name [:unique-identity]
                              :address [:reference]}
                             [[1 :name "Foo"]
                              [1 :lastname "Bar"]
                              [1 :email "foo@example.com"]
+                             [6 :father 1]
                              [1 :comments 2]
                              [1 :comments 3]
                              [3 :content "comment 3"]
                              [2 :content "comment 2"]
                              [1 :address 4]])
-      entities (pull/resolve-attribute-spec db {:db/id 1} '{:comments [*]})
-      ]
+      entities (pull/pull db [:name "Foo"] '[:name {:_father [*]}])]
   entities)

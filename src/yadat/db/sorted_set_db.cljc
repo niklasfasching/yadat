@@ -13,12 +13,18 @@
                 (cmp (get datom1 i) (get datom2 i))))
             0 [i1 i2 i3])))
 
+;; clojurescript does not have .seqFrom - figure that out
 (defn select-datoms
   "Returns collection of sequential datoms matching `datom` from `index`."
   [index datom]
   (let [cmp (:select-compare (meta index))]
     (take-while (fn [next-datom] (= (cmp datom next-datom) 0))
                 (.seqFrom index datom true))))
+
+(defn indexing? [db a]
+  (or (db/is? db a :unique-identity)
+      (db/is? db a :unique-value)
+      (db/is? db a :reference)))
 
 (defrecord SortedSetDb [eav aev ave schema eid]
   db/Db
@@ -38,23 +44,31 @@
         :reference (= :db.type/ref (:db/type (a schema)))
         :component (:db/isComponent (a schema))
         (throw (ex-info "Invalid value" {:a raw-a :x x})))))
+
   (delete [this datom]
-    (assoc this
-           :eav (disj eav datom)
-           :ave (disj ave datom)
-           :aev (disj aev datom)))
-  (insert [this [e a v :as datom]]
-    (assoc this
-           :eav (conj eav datom)
-           :ave (conj ave datom)
-           :aev (conj aev datom)))
+    (if datom
+      (assoc this
+             :eav (disj eav datom)
+             :ave (if (indexing? this (second datom)) (disj ave datom) ave)
+             :aev (disj aev datom))
+      this))
+  (insert [this datom]
+    (if datom
+      (assoc this
+             :eav (conj eav datom)
+             :ave (if (indexing? this (second datom)) (conj ave datom) ave)
+             :aev (conj aev datom))
+      this))
   (select [this [e a v :as datom]]
     (cond
-      (and e a (some? v)) (select-datoms eav [e a v])
-      (and e a) (select-datoms eav [e a nil])
-      (and a (some? v)) (->> (select-datoms ave [nil a nil])
-                             (filter #(= v (get % 2))))
-      a (select-datoms ave [nil a nil])
+      (and e a) (select-datoms eav [e a v])
+      (and a (some? v)
+           (not (indexing? this a))) (->> (select-datoms eav [nil nil nil])
+                                          (filter #(and (= a (get % 1))
+                                                        (= v (get % 2)))))
+      (and a (not (indexing? this a))) (->> (select-datoms eav [nil nil nil])
+                                            (filter #(= a (get % 1))))
+      a (->> (select-datoms ave [nil a v]))
       e (select-datoms eav [e nil nil])
       (some? v) (->> (select-datoms eav [nil nil nil])
                      (filter #(= v (get % 2))))

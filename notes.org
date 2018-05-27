@@ -1,31 +1,39 @@
+* use
+basic querying and stuff works - create an example component (?)
+reagent would be nice for this - but is so much work to setup
+then again...
+what's the goal...
 * ToDo
-- js interop
-  will make using this ad-hoc in blogs possible
-  tests http://blog.testdouble.com/posts/2015-10-12-configure-leiningen-for-clojurescript-and-clojure-testing
-
-  -> js-api mirrors api but converts back and forward
-
-- pull
-- reverse ref in pull / elsewhere
-- handle clause without var
-- handle lookup-ref in pattern-clause (all clause types?)
-- handle find aggregates
-- make an api namespace that exposes everything i need
-- https://github.com/subhash/clj-stack/wiki/Datomic-from-the-ground-up
-- performance tests using CC datasets, e.g. [[https://datacatalog.worldbank.org/search?sort_by=field_wbddh_modified_date&search_api_views_fulltext_op=AND&sort_order=DESC][worldbank]]
-- explain why datoms are arrays rather than maps - actually forgot but there was some
-  good reason because i switched over from it
-- db.fn
-- handle rules, with, in
+- sorted-set does not support non-comparable, non-reference many values
+- db
+  - db.fn
+  - constraints (unique/value) during insert
 - schema validation
   ensure isComponent is a reference
   forbid many + unique in schema
-- db constraints - (unique/value) during insert
-- workaround for resolve doesn't exist in cljs ([[https://stackoverflow.com/questions/12020576/resolve-function-throws-an-error-in-clojurescript-but-not-clojure/12020663#12020663][stackoverflow q]])
-- benchmark performance
-- setup tests against datomic & datascript
-- checkout data.avl
-- investigate [[https://github.com/datacrypt-project/hitchhiker-tree/][hitchhiker tree]] for storage / performance
+- query
+  - clause without variables
+  - clause with lookup-ref
+  - find aggregates
+  - rules
+  - with
+  - in
+- misc
+  - reverse-ref, lookup-ref everywhere
+  - cljs does not have real resolve ([[https://stackoverflow.com/questions/12020576/resolve-function-throws-an-error-in-clojurescript-but-not-clojure/12020663#12020663][stackoverflow q]]) - what do
+- tests
+  - standardize test data, use same type of data everywhere
+    - ancestry - e.g. {siblings, parents}
+    - https://github.com/arangodb/example-datasets
+  - js interop
+  - integration test against datomic / datascript
+- performance
+  - alternative db implementations: data.avl, hitchhiker tree
+  - performance tests using CC datasets, e.g. [[https://datacatalog.worldbank.org/search?sort_by=field_wbddh_modified_date&search_api_views_fulltext_op=AND&sort_order=DESC][worldbank]]
+* documentation
+- https://github.com/subhash/clj-stack/wiki/Datomic-from-the-ground-up
+- explain why datoms are arrays rather than maps - actually forgot but there was some
+  good reason because i switched over from it
 * optimization & rewriting
 on query optimization in datomic (hint: not done)
 https://groups.google.com/forum/#!msg/datomic/t7qKyVUqqqM/kPz4KSVqXuIJ

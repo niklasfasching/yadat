@@ -1,64 +1,68 @@
 (ns yadat.pull
   (:require [yadat.db :as db]))
 
-(declare resolve-pull)
-
 (def default-limit 1000)
 
-(def ^:dynamic *transform* identity)
-
-(defn select-datoms [db entity a]
-  (let [query-datom [(:db/id entity) a nil]]
-    (db/select db query-datom)))
-
-(defn datoms->av [db a datoms]
-  (let [vs (mapv (fn [[e a v]]
-                   (cond
-                     (db/is? db a :component) (resolve-pull v '[*])
-                     (db/is? db a :reference) {:db/id v}
-                     :else v)) datoms)]
-    (if (db/is? db a :many)
-      [a vs]
-      [a (first vs)])))
+(declare resolve-pull)
 
 (defn attribute-spec-type [spec]
   (cond
     (= spec '*) :wildcard
     (keyword? spec) :attribute
     (map? spec) :map
-    (and (vector? spec) (keyword? (first spec))) :attribute-with-options
-    (and (list? spec) (symbol? (first spec))) :attribute-expression ;; remove for complexity?
+    (and (sequential? spec) (keyword? (first spec))) :attribute-with-options
+    (and (list? spec) (symbol? (first spec))) :attribute-expression
     :else (throw (ex-info "Invalid attribute-spec" {:spec spec}))))
+
+(defn select-datoms [db entity a {:keys [limit] :as options}]
+  (let [query-datom (if (db/reverse-ref? a)
+                      [nil (db/reversed-ref a) (:db/id entity)]
+                      [(:db/id entity) a nil])
+        datoms (take (or limit default-limit) (db/select db query-datom))]
+    datoms))
+
+(defn extend-entity
+  [db entity a datoms options]
+  (let [{:keys [resolve as default]} options
+        vs (mapv (fn [[e _ v :as datom]]
+                   (cond
+                     (and (db/reverse-ref? a) resolve) (resolve e)
+                     (db/reverse-ref? a) {:db/id e}
+                     resolve (resolve v)
+                     (db/is? db a :component) (resolve-pull v '[*])
+                     (db/is? db a :reference) {:db/id v}
+                     :else v)) datoms)
+        v-or-nil (if (db/is? db a :many) (not-empty vs) (first vs))
+        v (if (some? v-or-nil) v-or-nil default)
+        k (or as a)]
+    (assoc entity k v)))
 
 (defmulti resolve-attribute-spec
   (fn [db entity spec] (attribute-spec-type spec)))
 
 (defmethod resolve-attribute-spec :wildcard [db entity _]
-  (let [datoms (select-datoms db entity nil)
-        datoms-by-attribute (group-by second datoms)
-        avs (map (fn [[a datoms]] (datoms->av db a datoms))
-                 datoms-by-attribute)]
-    (into entity avs)))
+  (let [datoms (db/select db [(:db/id entity) nil nil])]
+    (reduce (fn [entity [a datoms]]
+              (extend-entity db entity a datoms nil))
+            entity (group-by second datoms))))
 
-(defmethod resolve-attribute-spec :attribute [db entity attribute]
-  (let [datoms (select-datoms db entity attribute)]
-    (into entity [(datoms->av db attribute datoms)])))
+(defmethod resolve-attribute-spec :attribute [db entity a]
+  (let [datoms (select-datoms db entity a nil)]
+    (extend-entity db entity a datoms nil)))
 
-
-(defmethod resolve-attribute-spec :attribute-with-options [db entity attribute]
-  )
-
-;; reverse ref: module/_major -> all modules that have the same major
-;; pulls all modules for a major... why not use straight?
+(defmethod resolve-attribute-spec :attribute-with-options [db entity spec]
+  (let [[a & raw-options] spec
+        options (apply hash-map raw-options)
+        datoms (select-datoms db entity a options)]
+    (extend-entity db entity a datoms options)))
 
 (defmethod resolve-attribute-spec :map [db entity spec]
-  (let [[attribute-spec pattern] (first (seq spec))]
-    ;; bind transform to pull
-    (resolve-attribute-spec db entity attribute-spec)))
-
-;; :limit & :as can be applied in select
-;; :default has to be applied as part of transformation,
-;; i.e either x or (t x) or default!
+  (let [[raw-spec pattern] (first (seq spec))
+        resolve (fn [eid] (resolve-pull db eid pattern))
+        spec (if (keyword? raw-spec)
+               [raw-spec :resolve resolve]
+               (concat raw-spec [:resolve resolve]))]
+    (resolve-attribute-spec db entity spec)))
 
 (defn resolve-pull [db eid pattern]
   (loop [entity {:db/id eid}
@@ -67,13 +71,10 @@
       entity
       (recur (resolve-attribute-spec db entity x) xs))))
 
-;; (defn pull [db eid pattern]
-;;   ;; lookup-refs and stuff in the pull api outside query
-;;   (let [[_ eid] (db/resolve-eid {:db db :temp-eids {}} eid)]))
-
-;; as :map is the outer fn cannot use *limit* *default* *as* from :a-options
-;; rather, bind a *transform* (defaults to identity) and handle each value that way
-;; must be able to override :component
-;; limit must have a default
-
-;; *limit* and *default* should still be dynamic to allow deferring from :attribute-with-options to :attribuetc
+(defn pull [db eid pattern]
+  (let [[_ eid] (cond
+                  (db/lookup-ref? db eid) (db/resolve-lookup-ref-eid
+                                           {:db db} eid)
+                  (db/real-eid? db eid) [nil eid]
+                  :else (throw (ex-info "Invalid eid" {:eid eid})))]
+    (resolve-pull db eid pattern)))
