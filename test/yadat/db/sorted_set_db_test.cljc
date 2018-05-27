@@ -33,7 +33,7 @@
 (deftest delete-test
   (let [datom1 [1 :user/name "foo"]
         datom2 [1 :user/email "foo@example.com"]
-        db (-> (db/make-db :sorted-set {})
+        db (-> (db/open :sorted-set {})
                (db/insert datom1)
                (db/insert datom2))
         db (db/delete db datom1)]

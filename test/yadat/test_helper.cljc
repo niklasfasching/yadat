@@ -43,10 +43,10 @@
                                      :ingredient/unit "piece"}]}])
 
 (defn recipe-db []
-  (let [db (db/make-db :minimal recipe-schema)
+  (let [db (db/open :minimal recipe-schema)
         [transaction eids] (db/transact db recipes)]
     (:db transaction)))
 
 (defn db-of [schema datoms]
-  (let [db (db/make-db :minimal schema)]
+  (let [db (db/open :minimal schema)]
     (reduce db/insert db datoms)))

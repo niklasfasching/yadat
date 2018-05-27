@@ -1,5 +1,6 @@
 (ns yadat.db.sorted-set-db
-  (:require [yadat.db :as db]))
+  (:require [clojure.edn :as edn]
+            [yadat.db :as db]))
 
 (defn make-datom-comparator
   "Returns a comparator. Compares datom fields `i1`-`i3` in order using `cmp`.
@@ -31,10 +32,12 @@
   (new-eid [this]
     (let [{:keys [eid] :as db} (update-in this [:eid] inc)]
       [db eid]))
+
   (update-eid [this external-eid]
     (if (> external-eid eid)
       (assoc this :eid external-eid)
       this))
+
   (is? [this raw-a x]
     (let [a (if (db/reverse-ref? raw-a) (db/reversed-ref raw-a) raw-a)]
       (case x
@@ -52,6 +55,7 @@
              :ave (if (indexing? this (second datom)) (disj ave datom) ave)
              :aev (disj aev datom))
       this))
+
   (insert [this datom]
     (if datom
       (assoc this
@@ -59,6 +63,7 @@
              :ave (if (indexing? this (second datom)) (conj ave datom) ave)
              :aev (conj aev datom))
       this))
+
   (select [this [e a v :as datom]]
     (cond
       (and e a) (select-datoms eav [e a v])
@@ -72,7 +77,10 @@
       e (select-datoms eav [e nil nil])
       (some? v) (->> (select-datoms eav [nil nil nil])
                      (filter #(= v (get % 2))))
-      :else (throw (ex-info "Invalid select" {:datom datom})))))
+      :else (throw (ex-info "Invalid select" {:datom datom}))))
+
+  (serialize [this]
+    (pr-str this)))
 
 (defn sorted-datom-set
   "Returns a sorted-set (see `make-datom-comparator`).
@@ -87,8 +95,18 @@
         select-compare (make-datom-comparator ignore-nil-compare i1 i2 i3)]
     (with-meta set {:select-compare select-compare})))
 
-(defmethod db/make-db :sorted-set [_ schema]
+(defmethod db/open :sorted-set [_ schema]
   (->SortedSetDb (sorted-datom-set 0 1 2) ; eav
                  (sorted-datom-set 1 0 2) ; aev
                  (sorted-datom-set 1 2 0) ; ave
                  schema 0))
+
+(defmethod db/deserialize :sorted-set [_ edn]
+  (edn/read-string
+   {:readers {'yadat.db.sorted_set_db.SortedSetDb
+              (fn [raw-db]
+                (let [db (db/open :sorted-set (:schema raw-db))]
+                  (assoc db
+                         :eav (into (:eav db) (:eav raw-db))
+                         :aev (into (:aev db) (:aev raw-db))
+                         :ave (into (:ave db) (:ave raw-db)))))}} edn))

@@ -71,7 +71,7 @@
 ;; datalog 140% of datascript runtime
 
 (time (dotimes [i 20]
-        (let [db (db/make-db :minimal schema)
+        (let [db (db/open :minimal schema)
               [transaction eids] (db/transact db [human-factors])]
           (datalog/q (:db transaction) query))))
 
@@ -87,12 +87,12 @@
 
 ;; the querying is like ... 5 times slower lol
 ;; 1900
-(let [db (db/make-db :sorted-set schema)
+(let [db (db/open :sorted-set schema)
       [{:keys [db]} eids] (time (db/transact db [human-factors]))]
   (time (dotimes [i 1000]
           (datalog/q db query))))
 
-(let [db (db/make-db :minimal schema)
+(let [db (db/open :minimal schema)
       [{:keys [db]} eids] (time (db/transact db [human-factors]))]
   (datalog/q db '{:find [?name]
                   :where [[?module-id :module/name ?module-name]
@@ -123,12 +123,12 @@ q(let [connection (datascript/create-conn schema)]
                     :module/id [:unique-identity]
                     :module/courses [:reference :many]})
 
-(time (let [db (db/make-db :minimal simple-schema)
+(time (let [db (db/open :minimal simple-schema)
             [transaction] (db/transact db [human-factors])
             db (:db transaction)]
         (time (datalog/q db query))))
 
-(time (let [db (db/make-db :sorted-set schema)
+(time (let [db (db/open :sorted-set schema)
             [transaction] (db/transact db [human-factors])
             db (:db transaction)]
         (time (datalog/q db query))))
@@ -137,7 +137,7 @@ q(let [connection (datascript/create-conn schema)]
         (datascript/transact! connection [human-factors])
         (time (datascript/q query @connection))))
 
-(let [db (db/make-db :sorted-set schema)
+(let [db (db/open :sorted-set schema)
       [transaction] (db/transact db [human-factors])
       db (:db transaction)]
   (first (datalog/q db '{:find [(pull ?module-id [*])]

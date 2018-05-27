@@ -4,7 +4,7 @@
             [yadat.db.minimal-db :as mdb]))
 
 (deftest insert-test
-  (let [db (-> (db/make-db :minimal {})
+  (let [db (-> (db/open :minimal {})
                (db/insert [1 :name "Hans"])
                (db/insert [2 :name "Heidi"]))]
     (is (= (set (db/select db [1 nil nil]))
@@ -13,7 +13,7 @@
            #{[2 :name "Heidi"]}))))
 
 (deftest delete-test
-  (let [db (-> (db/make-db :minimal {})
+  (let [db (-> (db/open :minimal {})
                (db/insert [1 :name "Hans"])
                (db/insert [2 :name "Heidi"]))]
     (is (= (set (db/select db [1 nil nil]))

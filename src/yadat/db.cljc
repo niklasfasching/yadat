@@ -1,5 +1,6 @@
 (ns yadat.db
-  (:require [clojure.set :as set]))
+  (:require [clojure.edn :as edn]
+            [clojure.set :as set]))
 
 (defprotocol Db
   "A database for datoms."
@@ -23,12 +24,17 @@
   (delete [db datom]
     "Returns `db` with `datom` removed.")
   (select [db datom]
-    "Returns collection of datoms matching `datom` from `db`."))
+    "Returns collection of datoms matching `datom` from `db`.")
+  (serialize [db]
+    "Returns edn serialized representation of `db`."))
 
-(defmulti make-db
-  "Returns an empty db of type `t` implementing the `Db` protocol.
-  Implementations for type `t` #{:minimal :sorted-set} are provided by default."
+(defmulti open
+  "Returns an empty db of type `t` implementing the `Db` protocol."
   (fn [t schema] t))
+
+(defmulti deserialize
+  "Returns of type `t` deserialized from input `edn` string. See `serialize`."
+  (fn [t edn] t))
 
 (defn real-eid? [db x] (and (number? x) (pos? x)))
 
@@ -104,7 +110,7 @@
     (keyword (namespace a) (subs (name a) 1))
     (keyword (namespace a) (str "_" (name a)))))
 
-(defn make-datom [db e a v]
+(defn datom [db e a v]
   (cond
     (and (not (is? db a :reference))
          (reverse-ref? a)) (throw (ex-info "Invalid reverse reference" {:a a}))
@@ -125,9 +131,9 @@
       (cond
         empty-entity? [transaction nil]
         (and (nil? a) (nil? avs)) [(assoc transaction :db db) eid]
-        (is? db a :many) (recur (insert db (make-datom db eid a v)) avs)
+        (is? db a :many) (recur (insert db (datom db eid a v)) avs)
         :else (let [db (-> (delete db (first (select db [eid a])))
-                           (insert (make-datom db eid a v)))]
+                           (insert (datom db eid a v)))]
                 (recur db avs))))))
 
 (defn add-entity

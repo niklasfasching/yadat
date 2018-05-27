@@ -1,5 +1,6 @@
 (ns yadat.db.minimal-db
-  (:require [yadat.db :as db]))
+  (:require [yadat.db :as db]
+            [clojure.edn :as edn]))
 
 (defrecord MinimalDb [set schema eid]
   db/Db
@@ -23,7 +24,15 @@
                          (not included?) (reduced included?)
                          (and (some? x) (some? y)) (= x y)
                          :else true))
-                     true (map vector datom %)) set)))
+                     true (map vector datom %)) set))
+  (serialize [this]
+    (pr-str this)))
 
-(defmethod db/make-db :minimal [_ schema]
+(defmethod db/open :minimal [_ schema]
   (->MinimalDb #{} schema 0))
+
+(defmethod db/deserialize :minimal [_ edn]
+  (edn/read-string
+   {:readers {'yadat.db.minimal_db.MinimalDb
+              (fn [{:keys [set schema eid]}]
+                (->MinimalDb set schema eid))}} edn))

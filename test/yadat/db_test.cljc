@@ -6,12 +6,12 @@
 
 (deftest resolve-eid-test
   (testing "real eid"
-    (let [transaction {:db (db/make-db :minimal {}) :temp-eids {}}
+    (let [transaction {:db (db/open :minimal {}) :temp-eids {}}
           [transaction eid] (db/resolve-eid transaction 1)]
       (is (= eid 1))))
 
   (testing "temp eid"
-    (let [transaction {:db (db/make-db :minimal {}) :temp-eids {}}
+    (let [transaction {:db (db/open :minimal {}) :temp-eids {}}
           [transaction eid1a] (db/resolve-eid transaction -1)
           [transaction eid2a] (db/resolve-eid transaction -2)
           [transaction eid1b] (db/resolve-eid transaction -1)]
@@ -21,7 +21,7 @@
       (is (= eid1a eid1b))))
 
   (testing "lookup ref"
-    (let [db (db/make-db :minimal {:user/name [:unique-identity]})
+    (let [db (db/open :minimal {:user/name [:unique-identity]})
           db (db/insert db [9001 :user/name "Hans"])
           transaction {:db db :temp-eids {}}
           [transaction eid] (db/resolve-eid transaction [:user/name "Hans"])]
@@ -30,7 +30,7 @@
                    (db/resolve-eid transaction [:user/name "Heidi"])))))
 
   (testing "unique identity attribute"
-    (let [db (db/make-db :minimal {:user/name [:unique-identity]})
+    (let [db (db/open :minimal {:user/name [:unique-identity]})
           db (db/insert db [9001 :user/name "Hans"])
           transaction {:db db :temp-eids {}}
           [transaction eid] (db/resolve-eid transaction [[:user/name "Hans"]]
@@ -41,7 +41,7 @@
 
 (deftest store-entity-test
   (testing "cardinality many"
-    (let [db (db/make-db :minimal {:email [:many]})
+    (let [db (db/open :minimal {:email [:many]})
           [transaction eid] (db/store-entity {:db db} 1
                                              [[:email "a@example.com"]
                                               [:email "b@example.com"]])]
@@ -50,7 +50,7 @@
                [1 :email "b@example.com"]}))))
 
   (testing "cardinality one"
-    (let [db (db/make-db :minimal {:email [:one]})
+    (let [db (db/open :minimal {:email [:one]})
           [transaction eid] (db/store-entity {:db db} 1
                                              [[:email "a@example.com"]
                                               [:email "b@example.com"]])]
@@ -58,7 +58,7 @@
              (set (db/select (:db transaction) [1 :email]))))))
 
   (testing "reverse reference"
-    (let [db (db/make-db :minimal {:recipe/ingredient [:reference]})
+    (let [db (db/open :minimal {:recipe/ingredient [:reference]})
           [transaction eid] (db/store-entity {:db db} 1
                                              [[:recipe/_ingredient 2]])]
       (is (= (set (db/select (:db transaction) [2 :recipe/ingredient]))
@@ -69,7 +69,7 @@
 
 (deftest add-entity-test
   (testing "entity with db/id"
-    (let [db (db/make-db :minimal {:user/comments [:reference :many]})
+    (let [db (db/open :minimal {:user/comments [:reference :many]})
           entity {:db/id 2
                   :user/name "Hans"
                   :user/comments [{:comment/text "A"}
@@ -81,7 +81,7 @@
              (set (db/select (:db transaction) [2]))))))
 
   (testing "entity with many references"
-    (let [db (db/make-db :minimal {:user/comments [:reference :many]})
+    (let [db (db/open :minimal {:user/comments [:reference :many]})
           entity {:db/id 9001
                   :user/name "Hans"
                   :user/comments [{:comment/text "A"}
@@ -93,7 +93,7 @@
              (set (db/select (:db transaction) [9001]))))))
 
   (testing "entity with many references (unwrapped lookup-ref)"
-    (let [db (db/make-db :minimal {:user/comments [:reference :many]
+    (let [db (db/open :minimal {:user/comments [:reference :many]
                                    :comment/text [:unique-identity]})
           [transaction eid] (db/store-entity {:db db} 42 [[:comment/text "A"]])
           entity {:db/id 9001
@@ -105,7 +105,7 @@
              (set (db/select (:db transaction) [9001]))))))
 
   (testing "entity with one reference"
-    (let [db (db/make-db :minimal {:user/comments [:reference :one]})
+    (let [db (db/open :minimal {:user/comments [:reference :one]})
           entity {:db/id 9001
                   :user/name "Hans"
                   :user/comments {:comment/text "A"}}
@@ -115,7 +115,7 @@
              (set (db/select (:db transaction) [9001]))))))
 
   (testing "entity with many (non-reference) values"
-    (let [db (db/make-db :minimal {:user/comments [:many]})
+    (let [db (db/open :minimal {:user/comments [:many]})
           entity {:db/id 9001
                   :user/name "Hans"
                   :user/comments [{:comment/text "A"}
