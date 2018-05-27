@@ -1,12 +1,36 @@
-* use
-basic querying and stuff works - create an example component (?)
-reagent would be nice for this - but is so much work to setup
-then again...
-what's the goal...
+http://blog.teamtreehouse.com/building-a-syntax-highlighted-input-box-with-javascript
+https://microsoft.github.io/monaco-editor/index.html
+* next
+blog: can use src blocks + textContent to evaluate queries live!
+pretty much all interesting queries require aggregation - implement that!
+* find agg
+
+;; 2 axis: filter, projections
+;; scalar:     1, 1
+;; tuple:      1, n
+;; collection: n, 1
+;; relation:   n, n
+;; only relation & collection can be grouped
+;; so....
+
+
+!aggregate elements group by
+aggregating means taking result tuples,
+grouping them by the non-aggregate variables
+and then aggregating the groups
+and then returning the group tuples and normal tuples as a tuple
+so map over map and extend concat k and v
+
+alternatively, an immediate aggregate would be nice
+
+figure out which values are aggs and when resolving those immediately reduce them
+that would mean doing a transduce per row and each step applying (f agg row) and saving the result
+grouped by the grouping tuples
+in the end
+
+
 * ToDo
-- spit/slurp in cljs, js - java is easy
-- sorted-set does not support non-comparable, non-reference many values
-  same for datascript though
+- spit/slurp in cljs, js - not as obvious as in clj
 - db
   - db.fn
   - constraints (unique/value) during insert
@@ -22,7 +46,6 @@ what's the goal...
   - in
 - misc
   - reverse-ref, lookup-ref everywhere
-  - cljs does not have real resolve ([[https://stackoverflow.com/questions/12020576/resolve-function-throws-an-error-in-clojurescript-but-not-clojure/12020663#12020663][stackoverflow q]]) - what do
 - tests
   - tests for default db implementations
   - standardize test data, use same type of data everywhere
@@ -33,6 +56,11 @@ what's the goal...
 - performance
   - alternative db implementations: data.avl, hitchhiker tree
   - performance tests using CC datasets, e.g. [[https://datacatalog.worldbank.org/search?sort_by=field_wbddh_modified_date&search_api_views_fulltext_op=AND&sort_order=DESC][worldbank]]
+* limitations
+- sorted-set does not support non-comparable, non-reference many values
+  same for datascript though
+- cljs does not have real resolve ([[https://stackoverflow.com/questions/12020576/resolve-function-throws-an-error-in-clojurescript-but-not-clojure/12020663#12020663][stackoverflow q]]) - what do
+  right now resolve in cljs just throws -> cannot use predicates/functions
 * documentation
 - https://github.com/subhash/clj-stack/wiki/Datomic-from-the-ground-up
 - explain why datoms are arrays rather than maps - actually forgot but there was some
