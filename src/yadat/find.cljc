@@ -56,44 +56,32 @@
     (pull/resolve-pull db eid pattern)))
 
 (defmulti resolve-spec
-  (fn [db relation spec] (spec-type spec)))
+  (fn [db tuples spec] (spec-type spec)))
 
-(defmethod resolve-spec :scalar [db relation spec]
-  (let [row (-> relation :rows first)
-        [element] spec]
-    (resolve-element db row element)))
+(defmethod resolve-spec :scalar [db tuples spec]
+  (let [[element] spec]
+    (resolve-element db (first tuples) element)))
 
-(defmethod resolve-spec :relation [db relation spec]
+(defmethod resolve-spec :tuples [db tuples spec]
   (let [elements spec
-        resolve-row (fn [row] (mapv #(resolve-element db row %) elements))
-        tuples (map resolve-row (:rows relation))] ;; (set) makes the example fail
+        resolve-tuple (fn [tuple] (mapv #(resolve-element db tuple %) elements))
+        out-tuples (map resolve-tuple tuples)]
     (if (some #(= (element-type %) :aggregate) elements)
-      (aggregate elements tuples)
-      (set tuples))))
+      (aggregate elements out-tuples)
+      (set out-tuples))))
 
-(defmethod resolve-spec :collection [db relation spec]
+(defmethod resolve-spec :collection [db tuples spec]
   (let [[[element]] spec
-        values (map #(resolve-element db % element)
-                    (:rows relation))] ;; would guess same here
+        values (map #(resolve-element db % element) tuples)]
     (if (= (element-type element) :aggregate)
       (aggregate [element] (map vector values))
       values)))
 
-(defmethod resolve-spec :tuple [db relation spec]
-  (let [[elements] spec
-        row (-> relation :rows first)]
-    (mapv #(resolve-element db row %) elements)))
+(defmethod resolve-spec :tuple [db tuples spec]
+  (let [[elements] spec]
+    (mapv #(resolve-element db (first tuples) %) elements)))
 
-(defn query
-  "Queries `connection` for `query` map. Optionally takes further `inputs`.
-  In cljs query map must be provided as an edn string."
-  [connection query inputs]
-  (let [db @connection
-        in (:in query ['$])
-        with (:with query)
-        relations (where/resolve-clauses db '() (:where query))
-        relation (r/merge relations r/inner-join)]
-    (resolve-spec db relation (:find query))))
+
 
 ;; in = [binding value]
 
@@ -101,31 +89,7 @@
 ;; with = [ variable+ ]
 
 ;; (resolve-ins (:qin parsed-q) inputs) -> context
-
-(defn [binding value]
-  (cond
-    (scalar? binding) (r/relation #{binding} (set value))
-    (rule? binding) value
-    (plain-symbol? binding) value
-    (binding? binding) value
-    ))
-
 ;; group rules by ffirst, i.e. by their name
-
-(defn resolve-in [context [binding value]]
-  (cond
-    (and (instance? BindScalar binding)
-         (instance? SrcVar (:variable binding)))
-      (update-in context [:sources] assoc (get-in binding [:variable :symbol]) value)
-    (and (instance? BindScalar binding)
-         (instance? RulesVar (:variable binding)))
-      (assoc context :rules (parse-rules value))
-    :else
-      (update-in context [:rels] conj (in->rel binding value))))
-
-(defn resolve-ins [context bindings values]
-  (reduce resolve-in context (zipmap bindings values)))
-
 
 ;; the collect gets all symbols (find and with)
 ;; then aggregates rels symbols int agg
@@ -157,11 +121,6 @@
 ;; so... how do i find out all variables used in find?
 ;; need a parser i think...
 ;; otherwise would have to extract the vars for each type again by hand
-
-(defn collect [context symbols]
-  (->> (-collect context symbols)
-       (map vec)
-       set))
 
 
 ;; so maybe i need to restructur shit
