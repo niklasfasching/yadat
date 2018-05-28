@@ -82,3 +82,73 @@
   (let [[elements] spec
         row (-> relation :rows first)]
     (mapv #(resolve-element db row %) elements)))
+
+
+
+
+
+
+(defn query
+  "Queries `connection` for `query` map. Optionally takes further `inputs`.
+  In cljs query map must be provided as an edn string."
+  [connection query inputs]
+  (let [db @connection
+        in (:in query ['$])
+        with (:with query)
+        relations (where/resolve-clauses db '() (:where query))
+        relation (r/merge relations r/inner-join)]
+    (resolve-spec db relation (:find query))))
+
+
+;; in = [binding value]
+
+;; in = [ (src-var | rules-var | plain-symbol | binding)+ ]
+;; with = [ variable+ ]
+
+;; (resolve-ins (:qin parsed-q) inputs) -> context
+
+(defn [binding value]
+  (cond
+    (scalar? binding) (r/relation #{binding} (set value))
+    (rule? binding) value
+    (plain-symbol? binding) value
+    (binding? binding) value
+    ))
+
+;; group rules by ffirst, i.e. by their name
+
+(defn resolve-in [context [binding value]]
+  (cond
+    (and (instance? BindScalar binding)
+         (instance? SrcVar (:variable binding)))
+      (update-in context [:sources] assoc (get-in binding [:variable :symbol]) value)
+    (and (instance? BindScalar binding)
+         (instance? RulesVar (:variable binding)))
+      (assoc context :rules (parse-rules value))
+    :else
+      (update-in context [:rels] conj (in->rel binding value))))
+
+
+(defn resolve-ins [context bindings values]
+  (reduce resolve-in context (zipmap bindings values)))
+
+
+;; the collect gets all symbols (find and with)
+;; then aggregates rels symbols int agg
+;; if no relations then one array with nils?
+
+;; in each relation, filter out all columns not included in the symbols
+;; remove relations that don't have any of the symbols
+
+;; then for each tuple in the relation and the accumulator
+;; merge the relation tuple into the accumulator tuple
+;; ...
+
+;; this is just getting more and more confusing
+
+;; maybe it's time for a parser?
+
+(defn collect [context symbols]
+  (->> (-collect context symbols)
+       (map vec)
+       set))

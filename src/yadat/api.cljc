@@ -25,12 +25,16 @@
                         (:db transaction)))))
 
 (defn query
-  "Queries `connection` for `query` map.
+  "Queries `connection` for `query` map. Optionally takes further `inputs`.
   In cljs query map must be provided as an edn string."
-  [connection {:keys [find where] :as query}]
-  (let [relations (where/resolve-clauses @connection '() where)
+  [connection query inputs]
+  (let [db @connection
+        in (:in query ['$])
+        with (:with query)
+        relations (where/resolve-clauses db '() (:where query))
         relation (r/merge relations r/inner-join)]
-    (find/resolve-spec @connection relation find)))
+    (find/resolve-spec db relation (:find query))))
+
 
 ;; (defn pull [db eid pattern])
 

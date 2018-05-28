@@ -47,6 +47,8 @@ in the end
   - in + rules
 - misc
   - reverse-ref, lookup-ref everywhere
+  - consider some parsing strategy - https://github.com/youngnh/parsatron maybe can be adopted to lists
+    also this https://gist.github.com/kachayev/b5887f66e2985a21a466
 - tests
   - tests for find aggregates
   - tests for default db implementations
@@ -60,6 +62,7 @@ in the end
   - performance tests using CC datasets, e.g. [[https://datacatalog.worldbank.org/search?sort_by=field_wbddh_modified_date&search_api_views_fulltext_op=AND&sort_order=DESC][worldbank]]
 - api
   - spit/slurp in cljs, js - not as obvious as in clj
+  - async api? reagent looks to be fine with it and it standardizes api  https://github.com/reagent-project/reagent/pull/343/files
 * limitations
 - sorted-set does not support non-comparable, non-reference many values
   same for datascript though
