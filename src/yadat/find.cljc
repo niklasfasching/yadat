@@ -84,10 +84,6 @@
     (mapv #(resolve-element db row %) elements)))
 
 
-
-
-
-
 (defn query
   "Queries `connection` for `query` map. Optionally takes further `inputs`.
   In cljs query map must be provided as an edn string."
@@ -98,7 +94,6 @@
         relations (where/resolve-clauses db '() (:where query))
         relation (r/merge relations r/inner-join)]
     (resolve-spec db relation (:find query))))
-
 
 ;; in = [binding value]
 
@@ -147,6 +142,19 @@
 ;; this is just getting more and more confusing
 
 ;; maybe it's time for a parser?
+
+;;
+
+;; $var database
+;; ?var scalar
+;; same as spec type - scalar, tuple, collection, relation - but look different
+
+;; for parsing:
+
+;; in-spec -> resolve -> relation
+;; find-spec -> resolve -> result (set|list|tuple|scalar)
+;; where ->
+
 
 (defn collect [context symbols]
   (->> (-collect context symbols)

@@ -29,6 +29,17 @@ grouped by the grouping tuples
 in the end
 
 * ToDo
+- use clojure spec conform as parser :o???
+  #+BEGIN_SRC clojure
+  (s/def ::config (s/*
+                    (s/cat :prop string?
+                           :val  (s/alt :s string? :b boolean?))))
+  (s/conform ::config ["-server" "foo" "-verbose" true "-user" "joe"])
+  ;;=> [{:prop "-server", :val [:s "foo"]}
+  ;;    {:prop "-verbose", :val [:b true]}
+  ;;    {:prop "-user", :val [:s "joe"]}]
+  #+END_SRC
+
 - with clause
   works without it even though it shouldn't
   fix that
