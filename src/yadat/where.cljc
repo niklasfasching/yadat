@@ -1,7 +1,22 @@
 (ns yadat.where
   (:require [yadat.db :as db]
             [yadat.util :as util]
-            [yadat.relation :as r]))
+            [yadat.relation :as r]
+            [clojure.spec.alpha :as s]))
+
+(declare resolve-clauses)
+
+(s/def ::clause
+  (s/alt :or (s/cat :type #{'or} :clauses (s/spec (s/+ ::clause)))
+         :and (s/cat :type #{'and} :clauses (s/+ ::clause))
+         :not (s/cat :type #{'not} :clauses (s/+ ::clause))
+         :function (s/cat :fn (s/or :variable util/var? :symbol symbol?)
+                          :arguments (s/+ any?)
+                          :variables (s/+ util/var?))
+         :predicate (s/cat :fn (s/or :variable util/var? :symbol symbol?)
+                           :arguments (s/+ any?))
+         :pattern (s/& (s/+ any?) #(and (some util/var? %)
+                                        (<= (count %) 3)))))
 
 (defn apply-function [rows raw-f raw-args raw-vars]
   (let [f (util/resolve-symbol raw-f)]
@@ -15,78 +30,49 @@
   (let [f (util/resolve-symbol raw-f)]
     (filter (fn [b] (apply f (mapv #(get b % %) raw-args))) rows)))
 
-(defn clause-type [clause]
-  (cond
-    (and (seq? clause)
-         (= (first clause) 'or)) :or
-    (and (seq? clause)
-         (= (first clause) 'and)) :and
-    (and (seq? clause)
-         (= (first clause) 'not)) :not
-    (and (vector? clause)
-         (seq? (first clause))
-         (> (count clause) 1)) :function
-    (and (vector? clause)
-         (seq? (first clause))
-         (= (count clause) 1)) :predicate
-    (vector? clause) :pattern
-    :else (throw (ex-info "Could not resolve clause" {:clause clause}))))
+(defn resolve-clause [db relations clause]
+  (let [[t v] (s/conform ::clause)] ;; TODO handle invalid
+    (case t
+      :or
+      (->> (mapcat #(resolve-clauses db relations [%]) (:clauses v))
+           (remove (set relations))
+           (r/merge r/union)
+           (conj relations))
 
-(declare resolve-clauses)
+      :and
+      (resolve-clauses db relations (:clauses v))
 
-(defmulti resolve-clause
-  "Resolves `clause` into a relation based on `db` and `relations`.
-  Returns a list of relations of which the first relation must be the resolved
-  relation. We cannot just return the resolved relation as there are clauses
-  that modify the input `relations`."
-  (fn [db relations clause] (clause-type clause)))
+      :not
+      (let [not-relation (->> (resolve-clauses db relations (:clauses v))
+                              (remove (set relations))
+                              (r/merge r/inner-join))
+            [relations relation] (r/split relations (:columns not-relation))
+            new-relation (r/disjoin relation not-relation)]
+        (conj relations new-relation))
 
-(defmethod resolve-clause :or [db relations clause]
-  (let [[_ & clauses] clause
-        out-relations (mapcat #(resolve-clauses db relations [%]) clauses)
-        or-relations (remove (set relations) out-relations)
-        or-relation (r/merge or-relations r/union)]
-    (conj relations or-relation)))
+      :function
+      (let [[relations relation] (r/split relations (filter util/var? (:arguments v)))
+            rows (apply-function (:rows relation) (:fn v) (:arguments v) (:variables v))
+            columns (into (:columns relation) (:variables v))
+            relation (r/relation columns rows)]
+        (conj relations relation))
 
-(defmethod resolve-clause :and [db relations clause]
-  (let [[_ & clauses] clause]
-    (resolve-clauses db relations clauses)))
+      :predicate
+      (let [[relations relation] (r/split relations (filter util/var? (:arguments v)))
+            rows (apply-predicate (:rows relation) (:fn v) (:arguments v))
+            relation (r/relation (:columns relation) rows)]
+        (conj relations relation))
 
-(defmethod resolve-clause :not [db relations clause]
-  (let [[_ & clauses] clause
-        out-relations (resolve-clauses db relations clauses)
-        not-relations (remove (set relations) out-relations)
-        not-relation (r/merge not-relations r/inner-join)
-        [relations relation] (r/split relations (:columns not-relation))
-        new-relation (r/disjoin relation not-relation)]
-    (conj relations new-relation)))
-
-(defmethod resolve-clause :function [db relations clause]
-  (let [[[raw-f & raw-args] & raw-vars] clause
-        [relations relation] (r/split relations (filter util/var? raw-args))
-        rows (apply-function (:rows relation) raw-f raw-args raw-vars)
-        columns (into (:columns relation) raw-vars)
-        relation (r/relation columns rows)]
-    (conj relations relation)))
-
-(defmethod resolve-clause :predicate [db relations clause]
-  (let [[[raw-f & raw-args]] clause
-        [relations relation] (r/split relations (filter util/var? raw-args))
-        rows (apply-predicate (:rows relation) raw-f raw-args)
-        relation (r/relation (:columns relation) rows)]
-    (conj relations relation)))
-
-(defmethod resolve-clause :pattern [db relations clause ]
-  (let [query-datom (map (fn [x] (if (or (util/var? x) (= x '_)) nil x)) clause)
-        index (reduce-kv (fn [m i x]
-                           (if (util/var? x) (assoc m i x) m)) {} clause)
-        datoms (db/select db query-datom)
-        rows (map #(reduce-kv (fn [row i x]
-                                (if-let [variable (index i)]
-                                  (assoc row variable x)
-                                  row)) {} %) datoms)
-        relation (r/relation (vals index) rows)]
-    (conj relations relation)))
+      :pattern
+      (let [query-datom (map (fn [x] (if (or (util/var? x) (= x '_)) nil x)) clause)
+            index (reduce-kv (fn [m i x] (if (util/var? x) (assoc m i x) m)) {} clause)
+            datoms (db/select db query-datom)
+            rows (map #(reduce-kv (fn [row i x]
+                                    (if-let [variable (index i)]
+                                      (assoc row variable x)
+                                      row)) {} %) datoms)
+            relation (r/relation (vals index) rows)]
+        (conj relations relation)))))
 
 (defn resolve-clauses
   "Resolves `clauses` against `db` and `relations`. Returns list of relations.
