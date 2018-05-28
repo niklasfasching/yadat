@@ -58,6 +58,3 @@
 
   (testing "aggregate"))
 
-;; (let [db (test-helper/recipe-db)]
-;;   (find/q db '{:find [?id]
-;;                :where [[?id :recipe/name ?name]]}))

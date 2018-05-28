@@ -28,25 +28,27 @@ that would mean doing a transduce per row and each step applying (f agg row) and
 grouped by the grouping tuples
 in the end
 
-
 * ToDo
-- spit/slurp in cljs, js - not as obvious as in clj
+- with clause
+  works without it even though it shouldn't
+  fix that
 - db
   - db.fn
   - constraints (unique/value) during insert
 - schema validation
   ensure isComponent is a reference
   forbid many + unique in schema
+- validation
+  - where clause without variables
+  - use of non-existant variable - that's one where parser step -> check used variables would simplify things a lot
 - query
-  - clause without variables
   - clause with lookup-ref
-  - find aggregates
-  - rules
   - with
-  - in
+  - in + rules
 - misc
   - reverse-ref, lookup-ref everywhere
 - tests
+  - tests for find aggregates
   - tests for default db implementations
   - standardize test data, use same type of data everywhere
     - ancestry - e.g. {siblings, parents}
@@ -56,6 +58,8 @@ in the end
 - performance
   - alternative db implementations: data.avl, hitchhiker tree
   - performance tests using CC datasets, e.g. [[https://datacatalog.worldbank.org/search?sort_by=field_wbddh_modified_date&search_api_views_fulltext_op=AND&sort_order=DESC][worldbank]]
+- api
+  - spit/slurp in cljs, js - not as obvious as in clj
 * limitations
 - sorted-set does not support non-comparable, non-reference many values
   same for datascript though

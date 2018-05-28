@@ -65,7 +65,7 @@
 (defmethod resolve-spec :relation [db relation spec]
   (let [elements spec
         resolve-row (fn [row] (mapv #(resolve-element db row %) elements))
-        tuples (map resolve-row (:rows relation))]
+        tuples (map resolve-row (:rows relation))] ;; (set) makes the example fail
     (if (some #(= (element-type %) :aggregate) elements)
       (aggregate elements tuples)
       (set tuples))))
@@ -73,7 +73,7 @@
 (defmethod resolve-spec :collection [db relation spec]
   (let [[[element]] spec
         values (map #(resolve-element db % element)
-                    (:rows relation))]
+                    (:rows relation))] ;; would guess same here
     (if (= (element-type element) :aggregate)
       (aggregate [element] (map vector values))
       values)))
