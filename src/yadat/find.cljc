@@ -3,7 +3,8 @@
             [yadat.pull :as pull]
             [yadat.relation :as r]
             [yadat.util :as util]
-            [yadat.where :as where]))
+            [yadat.where :as where]
+            [clojure.walk :as walk]))
 
 (defn element-type [element]
   (cond
@@ -83,7 +84,6 @@
         row (-> relation :rows first)]
     (mapv #(resolve-element db row %) elements)))
 
-
 (defn query
   "Queries `connection` for `query` map. Optionally takes further `inputs`.
   In cljs query map must be provided as an edn string."
@@ -123,7 +123,6 @@
     :else
       (update-in context [:rels] conj (in->rel binding value))))
 
-
 (defn resolve-ins [context bindings values]
   (reduce resolve-in context (zipmap bindings values)))
 
@@ -143,8 +142,6 @@
 
 ;; maybe it's time for a parser?
 
-;;
-
 ;; $var database
 ;; ?var scalar
 ;; same as spec type - scalar, tuple, collection, relation - but look different
@@ -155,8 +152,19 @@
 ;; find-spec -> resolve -> result (set|list|tuple|scalar)
 ;; where ->
 
+;; i think extending to collections is all i need for :in
+;; for with... i need to take a subset of the final relation that only contains the relevant variables
+;; so... how do i find out all variables used in find?
+;; need a parser i think...
+;; otherwise would have to extract the vars for each type again by hand
 
 (defn collect [context symbols]
   (->> (-collect context symbols)
        (map vec)
        set))
+
+
+;; so maybe i need to restructur shit
+;; do i want a parser first?
+;; spec turns out to be missing data transformation...
+;; could use it nonetheless
