@@ -1,8 +1,12 @@
 http://blog.teamtreehouse.com/building-a-syntax-highlighted-input-box-with-javascript
 https://microsoft.github.io/monaco-editor/index.html
 * next
-blog: can use src blocks + textContent to evaluate queries live!
-pretty much all interesting queries require aggregation - implement that!
+whether to rewrite shit to use clojure spec
+clojure specs errors are horrible right now so they don't really replace real errors
+but in theory they would
+so switching to spec as parser + conform could be nice
+
+
 * find agg
 
 ;; 2 axis: filter, projections
@@ -27,6 +31,19 @@ figure out which values are aggs and when resolving those immediately reduce the
 that would mean doing a transduce per row and each step applying (f agg row) and saving the result
 grouped by the grouping tuples
 in the end
+
+* in
+
+;; in = [binding value]
+;; in = [ (src-var | rules-var | plain-symbol | binding)+ ]
+;; (resolve-ins (:qin parsed-q) inputs) -> context
+;; group rules by ffirst, i.e. by their name
+
+;; $var database
+;; ?var scalar
+;; same as spec type - scalar, tuple, collection, relation - but look different
+
+;; i think extending to collections is all i need for :in
 
 * ToDo
 - use clojure spec conform as parser :o???
@@ -71,6 +88,7 @@ in the end
 - performance
   - alternative db implementations: data.avl, hitchhiker tree
   - performance tests using CC datasets, e.g. [[https://datacatalog.worldbank.org/search?sort_by=field_wbddh_modified_date&search_api_views_fulltext_op=AND&sort_order=DESC][worldbank]]
+  - magic set transformation
 - api
   - spit/slurp in cljs, js - not as obvious as in clj
   - async api? reagent looks to be fine with it and it standardizes api  https://github.com/reagent-project/reagent/pull/343/files

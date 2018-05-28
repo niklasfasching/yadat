@@ -68,7 +68,7 @@
         out-tuples (map resolve-tuple tuples)]
     (if (some #(= (element-type %) :aggregate) elements)
       (aggregate elements out-tuples)
-      (set out-tuples))))
+      out-tuples)))
 
 (defmethod resolve-spec :collection [db tuples spec]
   (let [[[element]] spec
@@ -80,50 +80,3 @@
 (defmethod resolve-spec :tuple [db tuples spec]
   (let [[elements] spec]
     (mapv #(resolve-element db (first tuples) %) elements)))
-
-
-
-;; in = [binding value]
-
-;; in = [ (src-var | rules-var | plain-symbol | binding)+ ]
-;; with = [ variable+ ]
-
-;; (resolve-ins (:qin parsed-q) inputs) -> context
-;; group rules by ffirst, i.e. by their name
-
-;; the collect gets all symbols (find and with)
-;; then aggregates rels symbols int agg
-;; if no relations then one array with nils?
-
-;; in each relation, filter out all columns not included in the symbols
-;; remove relations that don't have any of the symbols
-
-;; then for each tuple in the relation and the accumulator
-;; merge the relation tuple into the accumulator tuple
-;; ...
-
-;; this is just getting more and more confusing
-
-;; maybe it's time for a parser?
-
-;; $var database
-;; ?var scalar
-;; same as spec type - scalar, tuple, collection, relation - but look different
-
-;; for parsing:
-
-;; in-spec -> resolve -> relation
-;; find-spec -> resolve -> result (set|list|tuple|scalar)
-;; where ->
-
-;; i think extending to collections is all i need for :in
-;; for with... i need to take a subset of the final relation that only contains the relevant variables
-;; so... how do i find out all variables used in find?
-;; need a parser i think...
-;; otherwise would have to extract the vars for each type again by hand
-
-
-;; so maybe i need to restructur shit
-;; do i want a parser first?
-;; spec turns out to be missing data transformation...
-;; could use it nonetheless

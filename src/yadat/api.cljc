@@ -32,7 +32,7 @@
         relations (where/resolve-clauses db '() (:where query))
         relation (r/merge relations r/inner-join)
         variables (concat (filter util/var? (flatten (:find query)))
-                          (:with query))
+                          (:with query)) ;; TODO hacky
         tuples (set (map #(select-keys % variables) (:rows relation)))]
     (find/resolve-spec db tuples (:find query))))
 
