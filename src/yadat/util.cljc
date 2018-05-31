@@ -2,9 +2,7 @@
   (:refer-clojure :exclude [read-string])
   (:require #?(:clj [clojure.edn :as edn]
                :cljs [cljs.reader :as edn])
-            [clojure.walk :as walk]
-            [expound.alpha :as expound]
-            [clojure.spec.alpha :as s]))
+            [clojure.walk :as walk]))
 
 (defn var? [x]
   (and (symbol? x) (= \? (first (name x)))))
@@ -35,9 +33,3 @@
 
 (defn read-string [readers edn]
   (edn/read-string {:readers readers} edn))
-
-(defn conform [spec value]
-  (let [conformed (s/conform spec value)]
-    (if (= conformed :clojure.spec.alpha/invalid)
-      (throw (Exception. (expound/expound-str spec value)))
-      conformed)))
