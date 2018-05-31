@@ -1,5 +1,24 @@
 http://blog.teamtreehouse.com/building-a-syntax-highlighted-input-box-with-javascript
 https://microsoft.github.io/monaco-editor/index.html
+* rewriting query to use a parser
+while trying to add :with i realized that i had not been removing unused variables from the result rows
+this meant the medusa head problem was working without with even though it shouldn't - rows were not collapsed as
+they did not merely contain the :heads but also :name - which should have been removed not being part of the find
+to figure out what variables are used in find and should be kept in the rows i would have to parse everything again and distinguish spec types
+and element types...
+this lead me to consider using a parser.
+interestingly, a 80% workaroud is just (filter var? (flatten find-spec))
+this only runs into problems with (pull) that contains (x :as ?variable-looking-thing)
+an ugly 100% would be just flattenging once!
+
+(defn flatten-1 [x]
+  (mapcat #(if (sequential? %) % [%]) x))
+(filter util/var? (flatten-1 find-spec))
+
+gets us all the way as far as i can see :)
+
+make it work first - later make it pretty with a parser
+learn some more first i guess
 * next
 whether to rewrite shit to use clojure spec
 clojure specs errors are horrible right now so they don't really replace real errors

@@ -6,8 +6,9 @@
 
 (declare resolve-clauses)
 
+
 (s/def ::clause
-  (s/alt :or (s/cat :type #{'or} :clauses (s/spec (s/+ ::clause)))
+  (s/alt :or (s/cat :type #{'or} :clauses (s/+ ::clause))
          :and (s/cat :type #{'and} :clauses (s/+ ::clause))
          :not (s/cat :type #{'not} :clauses (s/+ ::clause))
          :function (s/cat :fn (s/or :variable util/var? :symbol symbol?)
@@ -17,6 +18,8 @@
                            :arguments (s/+ any?))
          :pattern (s/& (s/+ any?) #(and (some util/var? %)
                                         (<= (count %) 3)))))
+
+(util/conform ::clause '[a b c])
 
 (defn apply-function [rows raw-f raw-args raw-vars]
   (let [f (util/resolve-symbol raw-f)]
@@ -83,5 +86,6 @@
          relations relations]
     (if (and (nil? clause) (nil? clauses))
       relations
+
       (let [relations (resolve-clause db relations clause)]
         (recur clauses relations)))))

@@ -7,20 +7,48 @@
 ;; buuuuuut tagged when resolved via alt - so i got it after all
 ;; question now is whether i want to turn it into records?
 ;; i guess could try that - maybe some overhead but pretty?
+;; to convert to records or not to...
+;; not converting seems like much less code
+
+(filter util/var? (apply concat '[(pull ?foo [(a :as ?bar)])]))
+(flatten)
+(mapcat identity [[1 2]])
+
+(defn flatten-1 [x]
+  (mapcat #(if (sequential? %) % [%]) x))
+
+(defn element-variables [[t element]]
+  (if (= t :variable)
+    element
+    (:variable element)))
+
+(defn spec-variables [[t spec]]
+  (if (= t :scalar)
+    (element-variables (:element spec))
+    (mapcat element-variables (:elements (:elements spec)))))
+
+;; should i rewrite based on spec or write my own parser into defrecords and rewrite with that?
+;; i'm for the parser...
+(defn resolve-spec)
 
 
-(s/check-asserts true)
+(defmacro spec [name spec conformer]
+  `(s/def ~name (s/and ~spec (s/conformer ~conformer))))
 
-(defn conform [spec value]
-  (let [conformed (s/conform spec value)]
-    (if (= conformed :clojure.spec.alpha/invalid)
-      (s/assert spec value)
-      conformed)))
+(defrecord Or [])
 
-(defrecord FunctionClause [fn arguments variables]
-  Clause
+(spec ::or (s/cat :type #{'or} :clauses (s/spec (s/+ ::clause)))
+      map->Or)
 
-  )
+(s/def ::or (s/cat :type #{'or} :clauses (s/spec (s/+ ::clause))))
+
+(s/assert ::or '(or [?a ?b 1]))
+
+(s/def ::or int?)
+
+(s/and ::or
+       (s/conformer (fn [])))
+
 (defn or-clause [v]
   (let [v (s/conform ::or v)]
 
@@ -47,7 +75,7 @@
                           :arguments (s/+ any?)
                           :variables (s/+ util/var?))
          :predicate (s/cat :fn (s/or :variable util/var? :symbol symbol?)
-                           :arguments (s/and (s/+ any)
+                           :arguments (s/and (s/+ any?)
                                              #(some util/var? %)))
          :pattern (s/& (s/+ any?) (fn [pattern]
 
@@ -61,7 +89,7 @@
 
 (s/def ::spec
   (s/alt :scalar (s/cat :element ::element :dot #{'.})
-         :collection (s/spec (s/cat :elements (s/+ util/var?) :dots #{'...}))
+         :collection (s/spec (s/cat :elements (s/+ ::element) :dots #{'...}))
          :tuple (s/spec (s/cat :elements (s/+ ::element)))
          :relation (s/cat :elements (s/+ ::element))))
 
@@ -71,16 +99,6 @@
          :aggregate (s/cat :fn (s/or :variable util/var? :symbol symbol?)
                            :constants (s/* (complement util/var?))
                            :variable util/var?)))
-
-(s/conform ::spec '[[?help ...]])
-
-(s/explain ::spec '[?a ?b (pull ?a [*]) (agg id)])
-
-(s/conform ::find-element '(pull ?id []))
-(s/conform ::find-element '(agg foo bar ?id))
-
-(case t
-  :scalar (let [row (-> relation :rows first)]))
 
 
 (defn x-integer? [x]
@@ -110,3 +128,14 @@
 ;; => {:user/name "juho", :user/age 9001}
 (s/conform ::user {::user/name "juho" ::user/age "x9001"})
 ;; => :clojure.spec/invalid
+
+
+
+
+;; to build my very own parser all i need is cat + * and or
+;; but how to throw a sensible error?
+
+;; spec is weird and i actually mostly want the conform part
+;; -> write my own parser i guess..
+;; spec error messages suck so hard
+;; otherwise
