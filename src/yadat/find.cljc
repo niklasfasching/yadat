@@ -62,7 +62,7 @@
   (let [[element] spec]
     (resolve-element db (first tuples) element)))
 
-(defmethod resolve-spec :tuples [db tuples spec]
+(defmethod resolve-spec :relation [db tuples spec]
   (let [elements spec
         resolve-tuple (fn [tuple] (mapv #(resolve-element db tuple %) elements))
         out-tuples (map resolve-tuple tuples)]

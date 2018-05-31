@@ -33,3 +33,6 @@
 
 (defn read-string [readers edn]
   (edn/read-string {:readers readers} edn))
+
+(defn flatten-1 [x]
+  (mapcat #(if (sequential? %) % [%]) x))

@@ -9,7 +9,7 @@
                   {:name "Medusa" :heads 1}
                   {:name "Cyclops" :heads 1}
                   {:name "Chimera" :heads 1}])
-  (api/query db '{:find [[(sum ?heads) ...]]
+  (api/query db '{:find [(sum ?heads)]
                   :with [?id]
                   :where [[?id :heads ?heads]]}))
 

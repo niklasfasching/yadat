@@ -3,7 +3,6 @@
   (:require [yadat.db :as db]
             [yadat.db.minimal-db]
             [yadat.db.sorted-set-db]
-            [yadat.query :as query]
             [yadat.util :as util]
             [yadat.find :as find]
             [yadat.where :as where]
@@ -31,8 +30,8 @@
   (let [db @connection
         relations (where/resolve-clauses db '() (:where query))
         relation (r/merge relations r/inner-join)
-        variables (concat (filter util/var? (flatten (:find query)))
-                          (:with query)) ;; TODO hacky
+        variables (concat (filter util/var? (util/flatten-1 (:find query)))
+                          (:with query))
         tuples (set (map #(select-keys % variables) (:rows relation)))]
     (find/resolve-spec db tuples (:find query))))
 
