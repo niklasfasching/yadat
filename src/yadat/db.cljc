@@ -55,7 +55,7 @@
   "Resolve lookup-ref into an eid via `db` lookup. Throws if lookup fails."
   [{:keys [db] :as transaction} [a v :as lookup-ref]]
   (if-not (or (is? db a :unique-value) (is? db a :unique-identity))
-    (throw (ex-info "Invalid lookupp-ref: !unique" {:lookup-ref lookup-ref})))
+    (throw (ex-info "Invalid lookup-ref: !unique" {:lookup-ref lookup-ref})))
   (if-let [[eid _ _] (first (select db [nil a v]))]
     [transaction eid]
     (throw (ex-info "Invalid lookup-ref" {:lookup-ref lookup-ref}))))

@@ -80,3 +80,51 @@
 (defmethod resolve-spec :tuple [db tuples spec]
   (let [[elements] spec]
     (mapv #(resolve-element db (first tuples) %) elements)))
+
+
+;; in spec is list of elements
+;; in = [ (src-var | rules-var | plain-symbol | binding)+ ]
+
+(defn in-element-type [element]
+  (cond
+    (util/var? element) :scalar                  ; ?a
+    (and (vector? element)
+         (= (second element) '...)) :collection  ; [?a ...]
+    (and (vector? element) (= (count element) 1)
+         (vector (first element))) :relation     ; [[?a ?b]]
+    (vector? element) :tuple                     ; [?a ?b]
+    :else (throw (ex-info "Invalid in-element" {:element element}))))
+
+;; scalar -> relation {:variables #{?a} #{{?a 1}}}
+;; collection -> relation {:variables #{?a} #{{?a 1} {?a 2}}}
+;; relation -> relation {:variables #{?a ?b} #{{?a 1 ?b 1} {?a 2 ?b 2}}}
+;; tuple -> relation {:variables #{?a ?b} #{{?a 1 ?b 1}}}
+
+;; need to distinguish those and rules and
+
+(defmulti resolve-in-element
+  (fn [in-spec inputs] (in-spec-type in-spec)))
+
+'{:in [% ?var]}
+
+(query db rules query)
+;; rules set ... what is done with that?
+;; i'm resolving to relations here...
+;; rules set... where does that go?
+;; result: relations[] + rules
+;; rules can then be used as special predicates
+
+;; rules is another big thing - and rules actually require a parser to distinguish required and optional argumets
+;; non-bound variables are output!
+
+;; rather than keeping going here... maybe tests + parser would be a better use of time
+
+
+;; if i included times in the lsf dump:
+;; -> could calc most prolific professor - teaches most
+;; -> another one as gets around most, i.e. most rooms associated
+;; -> most courses taught
+;; all that requires everything is kinda stable
+;; for that i need tests
+
+;; think about how to make tests easier - example data?

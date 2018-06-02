@@ -1,5 +1,8 @@
 http://blog.teamtreehouse.com/building-a-syntax-highlighted-input-box-with-javascript
 https://microsoft.github.io/monaco-editor/index.html
+
+-> nice small parser!
+https://github.com/punitrathore/clj-parser/blob/master/src/clj_parser/core.clj
 * rewriting query to use a parser
 while trying to add :with i realized that i had not been removing unused variables from the result rows
 this meant the medusa head problem was working without with even though it shouldn't - rows were not collapsed as
@@ -19,13 +22,6 @@ gets us all the way as far as i can see :)
 
 make it work first - later make it pretty with a parser
 learn some more first i guess
-* next
-whether to rewrite shit to use clojure spec
-clojure specs errors are horrible right now so they don't really replace real errors
-but in theory they would
-so switching to spec as parser + conform could be nice
-
-
 * find agg
 
 ;; 2 axis: filter, projections
@@ -51,7 +47,24 @@ that would mean doing a transduce per row and each step applying (f agg row) and
 grouped by the grouping tuples
 in the end
 
+* parsing
+- use clojure spec conform as parser :o???
+  #+BEGIN_SRC clojure
+  (s/def ::config (s/*
+                    (s/cat :prop string?
+                           :val  (s/alt :s string? :b boolean?))))
+  (s/conform ::config ["-server" "foo" "-verbose" true "-user" "joe"])
+  ;;=> [{:prop "-server", :val [:s "foo"]}
+  ;;    {:prop "-verbose", :val [:b true]}
+  ;;    {:prop "-user", :val [:s "joe"]}]
+  #+END_SRC
+-> not that pretty as conform does not leave much freedom regarding actual transforming
+
 * in
+$... src-var is a db
+% rules-var
+?var is a var
+pattern-var is a symbol
 
 ;; in = [binding value]
 ;; in = [ (src-var | rules-var | plain-symbol | binding)+ ]
@@ -63,25 +76,25 @@ in the end
 ;; same as spec type - scalar, tuple, collection, relation - but look different
 
 ;; i think extending to collections is all i need for :in
+* on or vs rules
+One can imagine or clauses turn into an invocation of an anonymous rule whose predicates comprise the or clauses.
+As with rules, src-vars are not currently supported within the clauses of or, but are supported on the or clause as a
+whole at top level.
+-> good to know - so rule is resolved the same
 
 * ToDo
-- use clojure spec conform as parser :o???
-  #+BEGIN_SRC clojure
-  (s/def ::config (s/*
-                    (s/cat :prop string?
-                           :val  (s/alt :s string? :b boolean?))))
-  (s/conform ::config ["-server" "foo" "-verbose" true "-user" "joe"])
-  ;;=> [{:prop "-server", :val [:s "foo"]}
-  ;;    {:prop "-verbose", :val [:b true]}
-  ;;    {:prop "-user", :val [:s "joe"]}]
-  #+END_SRC
+- async?
+  to allow async dbs (e.g. localstorage) where/resolve-clauses must return relations as promise ->
+  whole where implementation has to change as resolve-clauses is called internally
+  -> this in turn means all resolve-clause fns must be async
+  pull must be async
+  find must be async due to pull
+  it would probably be possible to provide a sync version by having sync dbs return results in fake promises and then just unwrap at the end
+  but idk... there must be a prettier way
 
-- with clause
-  works without it even though it shouldn't
-  fix that
-- db
-  - db.fn
-  - constraints (unique/value) during insert
+  a big problem is the insert - query should be fine with async as limited steps
+  pull & transact though are possibly deeply nested -> run into problems with async where tail recursion is out of the window
+  actually async does not grow stack as put on hold in between.... nevermind
 - schema validation
   ensure isComponent is a reference
   forbid many + unique in schema
@@ -90,13 +103,13 @@ in the end
   - use of non-existant variable - that's one where parser step -> check used variables would simplify things a lot
 - query
   - clause with lookup-ref
-  - with
-  - in + rules
-- misc
-  - reverse-ref, lookup-ref everywhere
-  - consider some parsing strategy - https://github.com/youngnh/parsatron maybe can be adopted to lists
-    also this https://gist.github.com/kachayev/b5887f66e2985a21a466
+    lookup-ref -> eid resolved only when in value position & attribute is a reference!
+  - in
+  - rules
+  - or-join, not-join
 - tests
+  - unique insert conflict
+  - lookup ref insert / query
   - tests for find aggregates
   - tests for default db implementations
   - standardize test data, use same type of data everywhere
@@ -104,18 +117,23 @@ in the end
     - https://github.com/arangodb/example-datasets
   - js interop
   - integration test against datomic / datascript
+- api
+  - spit/slurp in cljs, js - not as obvious as in clj
+  - provide async versions of api in js ->
+  - async api? reagent looks to be fine with it and it standardizes api  https://github.com/reagent-project/reagent/pull/343/files
 - performance
   - alternative db implementations: data.avl, hitchhiker tree
   - performance tests using CC datasets, e.g. [[https://datacatalog.worldbank.org/search?sort_by=field_wbddh_modified_date&search_api_views_fulltext_op=AND&sort_order=DESC][worldbank]]
   - magic set transformation
-- api
-  - spit/slurp in cljs, js - not as obvious as in clj
-  - async api? reagent looks to be fine with it and it standardizes api  https://github.com/reagent-project/reagent/pull/343/files
+* Won't do ToDo (out of scope for now)
+- db.fn
+- multiple / customizable sources (databases)
 * limitations
 - sorted-set does not support non-comparable, non-reference many values
   same for datascript though
 - cljs does not have real resolve ([[https://stackoverflow.com/questions/12020576/resolve-function-throws-an-error-in-clojurescript-but-not-clojure/12020663#12020663][stackoverflow q]]) - what do
   right now resolve in cljs just throws -> cannot use predicates/functions
+- only one database supported - no implicit $ / explicit multiple databases
 * documentation
 - https://github.com/subhash/clj-stack/wiki/Datomic-from-the-ground-up
 - explain why datoms are arrays rather than maps - actually forgot but there was some

@@ -1,5 +1,5 @@
 (ns yadat.util
-  (:refer-clojure :exclude [read-string])
+  (:refer-clojure :exclude [read-string var?])
   (:require #?(:clj [clojure.edn :as edn]
                :cljs [cljs.reader :as edn])
             [clojure.walk :as walk]))

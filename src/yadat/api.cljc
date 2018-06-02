@@ -28,7 +28,8 @@
   In cljs query map must be provided as an edn string."
   [connection query & inputs]
   (let [db @connection
-        relations (where/resolve-clauses db '() (:where query))
+        ;; in (resolve-in (or (:in query) '[$]))
+        relations (where/resolve-clauses db [] (:where query))
         relation (r/merge relations r/inner-join)
         variables (concat (filter util/var? (util/flatten-1 (:find query)))
                           (:with query))
