@@ -1,5 +1,4 @@
 (ns yadat.query
-  (:refer-clojure :exclude [resolve])
   (:require [clojure.core.match :refer [match]]
             [yadat.util :as util]
             [yadat.relation :as r]
@@ -7,23 +6,24 @@
             [clojure.set :as set]
             [yadat.pull :as pull]))
 
-;; should have the resolve in it's own namespace i guess
-;; would that mean where, find, pull, in having own namespaces?
-;; all for query
-;; otherwise really confusing
-;; but cannot define multiple resolve (w/o namespacing them)
-;; - multiple protocols with shared method name in same ns -> overwrite
-;; so... call it resolve-find-spec, resolve-find-element, resolve-clause
-;;
-
-(defprotocol FindSpec
-  (resolve-find-spec [_ db rows]))
+(def default-pull-limit 1000)
 
 (defprotocol FindElement
-  (resolve-find-element [_ db row]))
+  (resolve-find-element [this db row])
+  (vars [this]))
+
+(defprotocol FindSpec
+  (resolve-find-spec [this db rows])
+  (vars [this]))
 
 (defprotocol Clause
-  (resolve-clause [_ db relations]))
+  (resolve-clause [this db relations]))
+
+(defprotocol PullSpec
+  (resolve-pull-spec [this db eid]))
+
+(defprotocol PullElement
+  (resolve-pull-element [this db entity]))
 
 (defrecord AndClause [clauses]
   Clause
@@ -86,16 +86,19 @@
 
 (defrecord FindVariable [var]
   FindElement
+  (vars [_] [var])
   (resolve-find-element [_ db row]
     (get row var)))
 
 (defrecord FindPull [var pattern]
   FindElement
+  (vars [_] [var])
   (resolve-find-element [_ db row]
     (pull/resolve-pull-pattern pattern db (get row var))))
 
 (defrecord FindAggregate [f args]
   FindElement
+  (vars [_] (filter util/var? args))
   (resolve-find-element [_ db row]
     (some #(if (util/var? %) (get row %)) args)))
 
@@ -118,16 +121,19 @@
 
 (defrecord FindScalar [element]
   FindSpec
+  (vars [_] (vars element))
   (resolve-find-spec [_ db rows]
     (resolve-find-element element db (first rows))))
 
 (defrecord FindTuple [elements]
   FindSpec
+  (vars [_] (mapcat vars elements))
   (resolve-find-spec [_ db rows]
     (mapv #(resolve-find-element % db (first rows)) elements)))
 
 (defrecord FindRelation [elements]
   FindSpec
+  (vars [_] (mapcat vars elements))
   (resolve-find-spec [_ db rows]
     (let [tuples (map (fn [row]
                         (mapv #(resolve-find-element % db row) elements))
@@ -138,11 +144,77 @@
 
 (defrecord FindCollection [element]
   FindSpec
+  (vars [_] (vars element))
   (resolve-find-spec [_ db rows]
     (let [values (map #(resolve-find-element element db %) rows)]
       (if (instance? FindAggregate element)
         (aggregate [element] (map vector values))
         values))))
+
+(defrecord Pull [elements]
+  PullSpec
+  (resolve-pull-spec [_ db eid]
+    (loop [entity {:db/id eid}
+           [e & es] elements]
+      (if (and (nil? e) (nil? es))
+        entity
+        (recur (resolve-pull-element e db entity) es)))))
+
+(defrecord PullWildcard []
+  PullElement
+  (resolve-pull-element [_ db entity]
+    (let [datoms (db/select db [(:db/id entity) nil nil])]
+      (reduce (fn [entity [a datoms]]
+                (extend-entity db entity a datoms nil))
+              entity (group-by second datoms)))))
+
+(defrecord PullAttribute [a]
+  PullElement
+  (resolve-pull-element [_ db entity]
+    (let [datoms (select-datoms db entity a nil)]
+      (extend-entity db entity a datoms nil))))
+
+(defrecord PullMap [m]
+  PullElement
+  (resolve-pull-element [_ db entity]
+    (let [[raw-spec pattern] (first (seq m))
+          resolve (fn [eid] (resolve-pull-pattern pattern db eid)) ;; TODO
+          spec (if (keyword? raw-spec)
+                 [raw-spec :resolve resolve]
+                 (concat raw-spec [:resolve resolve]))]
+      (resolve-pull-element db entity spec))))
+
+(defrecord PullAttributeWithOptions [a options]
+  PullElement
+  (resolve-pull-element [_ db entity]
+    (let [datoms (select-datoms db entity a options)]
+      (extend-entity db entity a datoms options))))
+
+(defrecord PullAttributeExpression [a options])
+
+(defn extend-entity
+  [db entity a datoms options]
+  (let [{:keys [resolve as default]} options
+        vs (mapv (fn [[e _ v :as datom]]
+                   (cond
+                     (and (db/reverse-ref? a) resolve) (resolve e)
+                     (db/reverse-ref? a) {:db/id e}
+                     resolve (resolve v)
+                     (db/is? db a :component) (resolve
+                                               (->PullWildcard) db {:db/id v})
+                     (db/is? db a :reference) {:db/id v}
+                     :else v)) datoms)
+        v-or-nil (if (db/is? db a :many) (not-empty vs) (first vs))
+        v (if (some? v-or-nil) v-or-nil default)
+        k (or as a)]
+    (assoc entity k v)))
+
+(defn select-datoms [db entity a {:keys [limit] :as options}]
+  (let [query-datom (if (db/reverse-ref? a)
+                      [nil (db/reversed-ref a) (:db/id entity)]
+                      [(:db/id entity) a nil])
+        datoms (take (or limit default-pull-limit) (db/select db query-datom))]
+    datoms))
 
 (defn ->Clause [clause]
   (match [clause]
@@ -168,3 +240,12 @@
     [[[& es]]] (->FindTuple (map ->FindElement es))
     [[& es]] (->FindRelation (map ->FindElement es))
     :else (throw (ex-info "Invalid find spec" {:spec spec}))))
+
+(defn ->PullElement [element]
+  (match [element]
+    ['*] (->PullWildcard)
+    [(a :guard keyword?)] (->PullAttribute a)
+    [(m :guard map?)] (->PullMap m) ;; resolve it further into a sub-pull-pattern
+    [([(a :guard keyword?) & options] :seq)] (->PullAttributeWithOptions
+                                              a (apply hash-map options))
+    :else (throw (ex-info "Invalid pull element" {:element element}))))

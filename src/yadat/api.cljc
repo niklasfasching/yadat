@@ -4,8 +4,9 @@
             [yadat.db.minimal-db]
             [yadat.db.sorted-set-db]
             [yadat.util :as util]
-            [yadat.find :as find]
-            [yadat.where :as where]
+
+            [yadat.query :as query]
+
             [yadat.relation :as r]))
 
 (defn open
@@ -28,15 +29,21 @@
   In cljs query map must be provided as an edn string."
   [connection query & inputs]
   (let [db @connection
-        ;; in (resolve-in (or (:in query) '[$]))
-        relations (where/resolve-clauses db [] (:where query))
-        relation (r/merge relations r/inner-join)
-        variables (concat (filter util/var? (util/flatten-1 (:find query)))
-                          (:with query))
+        ;; in (resolve-in (or (:in query) '[$])
+        where (query/->AndClause (map query/->Clause (:where query)))
+        find (query/->FindSpec (:find query))
+        relation (r/merge (query/resolve-clause where db []) r/inner-join)
+        variables (set (concat (query/vars find) (:with query)))
         tuples (set (map #(select-keys % variables) (:rows relation)))]
-    (find/resolve-spec db tuples (:find query))))
+    (query/resolve-find-spec find db tuples)))
 
-;; (defn pull [db eid pattern])
+(defn pull [db eid pattern]
+  (let [[_ eid] (cond
+                  (db/lookup-ref? db eid) (db/resolve-lookup-ref-eid
+                                           {:db db} eid)
+                  (db/real-eid? db eid) [nil eid]
+                  :else (throw (ex-info "Invalid eid" {:eid eid})))]
+    (resolve-pull-spec (->Pull pattern) db eid)))
 
 ;; (defn slurp
 ;;   "Read db of type `t` from `f`.

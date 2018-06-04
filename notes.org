@@ -88,15 +88,25 @@ thing is, i don't know where to implement the stuff
 extending the records in the parser is kinda ugly
 extending them somewhere else means i have to import all of them (e.g. in query)
 
-* ToDo
+validation is missing... rewrite the parser later to have error messages
+for now implement using the parsed records extending resolve
+
 clause resolve [db relations clause]
 find spec resolve [db tuples spec]
 find element resolve [db row element]
 pull spec resolve [db entity spec]
--> could leave it unimplemented and allow extension
--> or ... just use it
+
+db
+could extend parsed from other ns if wanted
+(extend-protocol XmlNode
+  yadat.pull.PullAttribute
+  (as-xml [this] "pullAttribute"))
+
+(as-xml (pull/->PullAttribute nil))
+(to-xml (pull/->PullAttribute nil))
 
 
+* ToDo
 - async?
   to allow async dbs (e.g. localstorage) where/resolve-clauses must return relations as promise ->
   whole where implementation has to change as resolve-clauses is called internally
