@@ -10,11 +10,11 @@
 
 (defprotocol FindElement
   (resolve-find-element [this db row])
-  (vars [this]))
+  (element-vars [this]))
 
 (defprotocol FindSpec
   (resolve-find-spec [this db rows])
-  (vars [this]))
+  (spec-vars [this]))
 
 (defprotocol Clause
   (resolve-clause [this db relations]))
@@ -86,30 +86,31 @@
 
 (defrecord FindVariable [var]
   FindElement
-  (vars [_] [var])
+  (element-vars [_] [var])
   (resolve-find-element [_ db row]
     (get row var)))
 
 (defrecord FindPull [var pattern]
   FindElement
-  (vars [_] [var])
+  (element-vars [_] [var])
   (resolve-find-element [_ db row]
     (pull/resolve-pull-pattern pattern db (get row var))))
 
 (defrecord FindAggregate [f args]
   FindElement
-  (vars [_] (filter util/var? args))
+  (element-vars [_] (filter util/var? args))
   (resolve-find-element [_ db row]
     (some #(if (util/var? %) (get row %)) args)))
 
+
+;; group by variables from with?
 (defn aggregate [elements tuples]
   (let [aggregate-idx (reduce-kv (fn [m i e]
                                    (if (instance? FindAggregate e)
-                                     (let [[f-symbol & args] e
-                                           f (util/resolve-symbol f-symbol)
-                                           constant-args (butlast args)]
+                                     (let [f (util/resolve-symbol (:f e))
+                                           constant-args (butlast (:args e))]
                                        (assoc m i [f constant-args]))
-                                     m)) {} elements)
+                                     m)) {} (vec elements))
         group-indexes (set/difference (set (range (count elements)))
                                       (set (keys aggregate-idx)))
         groups (vals (group-by #(map (partial nth %) group-indexes) tuples))]
@@ -121,30 +122,30 @@
 
 (defrecord FindScalar [element]
   FindSpec
-  (vars [_] (vars element))
+  (spec-vars [_] (element-vars element))
   (resolve-find-spec [_ db rows]
     (resolve-find-element element db (first rows))))
 
 (defrecord FindTuple [elements]
   FindSpec
-  (vars [_] (mapcat vars elements))
+  (spec-vars [_] (mapcat element-vars elements))
   (resolve-find-spec [_ db rows]
     (mapv #(resolve-find-element % db (first rows)) elements)))
 
 (defrecord FindRelation [elements]
   FindSpec
-  (vars [_] (mapcat vars elements))
+  (spec-vars [_] (mapcat element-vars elements))
   (resolve-find-spec [_ db rows]
     (let [tuples (map (fn [row]
                         (mapv #(resolve-find-element % db row) elements))
                       rows)]
-      (if (some #(instance? FindAggregate) elements)
+      (if (some #(instance? FindAggregate %) elements)
         (aggregate elements tuples)
         tuples))))
 
 (defrecord FindCollection [element]
   FindSpec
-  (vars [_] (vars element))
+  (spec-vars [_] (element-vars element))
   (resolve-find-spec [_ db rows]
     (let [values (map #(resolve-find-element element db %) rows)]
       (if (instance? FindAggregate element)
@@ -216,32 +217,32 @@
         datoms (take (or limit default-pull-limit) (db/select db query-datom))]
     datoms))
 
-(defn ->Clause [clause]
+(defn parse-clause [clause]
   (match [clause]
-    [(['or & clauses] :seq)] (->OrClause (map ->Clause clauses))
-    [(['not & clauses] :seq)] (->NotClause (map ->Clause clauses))
-    [(['and & clauses] :seq)] (->AndClause (map ->Clause clauses))
+    [(['or & clauses] :seq)] (->OrClause (map parse-clause clauses))
+    [(['not & clauses] :seq)] (->NotClause (map parse-clause clauses))
+    [(['and & clauses] :seq)] (->AndClause (map parse-clause clauses))
     [[([f & args] :seq)]] (->PredicateClause f args)
     [[([f & args] :seq) vars]] (->FunctionClause f args vars)
     [[_ _ _]] (->PatternClause clause)
     :else (throw (ex-info "Invalid clause" {:clause clause}))))
 
-(defn ->FindElement [element]
+(defn parse-find-element [element]
   (match [element]
     [(v :guard util/var?)] (->FindVariable v)
     [(['pull (v :guard util/var?) [& pattern]] :seq)] (->FindPull v pattern)
     [([f & args] :seq)] (->FindAggregate f args)
     :else (throw (ex-info "Invalid find element" {:element element}))))
 
-(defn ->FindSpec [spec]
+(defn parse-find-spec [spec]
   (match [spec]
-    [[e '.]] (->FindScalar (->FindElement e))
-    [[[e '...]]] (->FindCollection (->FindElement e))
-    [[[& es]]] (->FindTuple (map ->FindElement es))
-    [[& es]] (->FindRelation (map ->FindElement es))
+    [[e '.]] (->FindScalar (parse-find-element e))
+    [[[e '...]]] (->FindCollection (parse-find-element e))
+    [[[& es]]] (->FindTuple (map parse-find-element es))
+    [[& es]] (->FindRelation (map parse-find-element es))
     :else (throw (ex-info "Invalid find spec" {:spec spec}))))
 
-(defn ->PullElement [element]
+(defn parse-pull-element [element]
   (match [element]
     ['*] (->PullWildcard)
     [(a :guard keyword?)] (->PullAttribute a)
@@ -249,3 +250,9 @@
     [([(a :guard keyword?) & options] :seq)] (->PullAttributeWithOptions
                                               a (apply hash-map options))
     :else (throw (ex-info "Invalid pull element" {:element element}))))
+
+(defn parse-pull-spec [pattern]
+  (->Pull (map parse-pull-element pattern)))
+
+(defn parse-where-clauses [clauses]
+  (->AndClause (map parse-clause clauses)))

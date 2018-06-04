@@ -30,10 +30,10 @@
   [connection query & inputs]
   (let [db @connection
         ;; in (resolve-in (or (:in query) '[$])
-        where (query/->AndClause (map query/->Clause (:where query)))
-        find (query/->FindSpec (:find query))
+        where (query/parse-where-clauses (:where query))
+        find (query/parse-find-spec (:find query))
         relation (r/merge (query/resolve-clause where db []) r/inner-join)
-        variables (set (concat (query/vars find) (:with query)))
+        variables (set (concat (query/spec-vars find) (:with query)))
         tuples (set (map #(select-keys % variables) (:rows relation)))]
     (query/resolve-find-spec find db tuples)))
 
@@ -43,7 +43,7 @@
                                            {:db db} eid)
                   (db/real-eid? db eid) [nil eid]
                   :else (throw (ex-info "Invalid eid" {:eid eid})))]
-    (resolve-pull-spec (->Pull pattern) db eid)))
+    (query/resolve-pull-spec (query/parse-pull-spec pattern) db eid)))
 
 ;; (defn slurp
 ;;   "Read db of type `t` from `f`.
