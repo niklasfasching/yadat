@@ -3,6 +3,7 @@ https://microsoft.github.io/monaco-editor/index.html
 
 -> nice small parser!
 https://github.com/punitrathore/clj-parser/blob/master/src/clj_parser/core.clj
+
 * rewriting query to use a parser
 while trying to add :with i realized that i had not been removing unused variables from the result rows
 this meant the medusa head problem was working without with even though it shouldn't - rows were not collapsed as
