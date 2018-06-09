@@ -229,8 +229,7 @@
   (let [find (parser/find-spec (:find query))
         variables (set (concat (spec-vars find) (:with query)))
         ;; in (resolve-in (or (:in query) '[$])
-        clause (parser/->AndClause (map parser/clause (:where query)))
-        tuples (->> (resolve-clause clause db [])
+        tuples (->> (resolve-clause (parser/where-clauses (:where query)) db [])
                     (r/merge r/inner-join)
                     :rows
                     (map #(select-keys % variables)))]

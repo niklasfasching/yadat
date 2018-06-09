@@ -2,9 +2,13 @@
   (:require [clojure.core.match :refer [match]]
             [yadat.util :as util]))
 
+(defrecord Rule [name required-vars vars clauses])
+
 (defrecord AndClause [clauses])
 (defrecord OrClause [clauses])
+(defrecord OrJoinClause [clauses])
 (defrecord NotClause [clauses])
+(defrecord NotJoinClause [clauses])
 (defrecord FunctionClause [f args vars])
 (defrecord PredicateClause [f args])
 (defrecord PatternClause [pattern])
@@ -26,42 +30,58 @@
 (defrecord PullAttributeWithOptions [a options])
 (defrecord PullAttributeExpression [a options])
 
-(defn clause [raw-clause]
-  (match [raw-clause]
-    [(['or & clauses] :seq)] (->OrClause (map clause clauses))
-    [(['not & clauses] :seq)] (->NotClause (map clause clauses))
-    [(['and & clauses] :seq)] (->AndClause (map clause clauses))
-    [[([f & args] :seq)]] (->PredicateClause f args)
-    [[([f & args] :seq) vars]] (->FunctionClause f args vars)
-    [[_ _ _]] (->PatternClause clause)
-    :else (throw (ex-info "Invalid clause" {:clause clause}))))
+(defn where-clause [form]
+  (match [form]
+    [(['or & clauses] :seq)] (->OrClause (map where-clause clauses))
+    [(['or-join & clauses] :seq)] (->OrJoinClause (map where-clause clauses))
+    [(['not & clauses] :seq)] (->NotClause (map where-clause clauses))
+    [(['not-join & clauses] :seq)] (->NotJoinClause (map where-clause clauses))
+    [(['and & clauses] :seq)] (->AndClause (map where-clause clauses))
+    [[([(f :guard symbol?) & args] :seq)]] (->PredicateClause f args)
+    [[([(f :guard symbol?) & args] :seq)
+      & (vars :guard #(every? util/var? %))]] (->FunctionClause f args vars)
+    [[_ _ _]] (->PatternClause form)
+    :else (throw (ex-info "Invalid clause" {:clause form}))))
 
-(defn where-clauses [clauses]
-  (->AndClause (map clause clauses)))
+(defn where-clauses [form]
+  (->AndClause (map where-clause form)))
 
-(defn find-element [element]
-  (match [element]
+(defn find-element [form]
+  (match [form]
     [(v :guard util/var?)] (->FindVariable v)
     [(['pull (v :guard util/var?) [& pattern]] :seq)] (->FindPull v pattern)
     [([f & args] :seq)] (->FindAggregate f args)
-    :else (throw (ex-info "Invalid find element" {:element element}))))
+    :else (throw (ex-info "Invalid find element" {:element form}))))
 
-(defn find-spec [spec]
-  (match [spec]
+(defn find-spec [form]
+  (match [form]
     [[e '.]] (->FindScalar (find-element e))
     [[[e '...]]] (->FindCollection (find-element e))
     [[[& es]]] (->FindTuple (map find-element es))
     [[& es]] (->FindRelation (map find-element es))
-    :else (throw (ex-info "Invalid find spec" {:spec spec}))))
+    :else (throw (ex-info "Invalid find spec" {:spec form}))))
 
-(defn pull-element [element]
-  (match [element]
+(defn pull-element [form]
+  (match [form]
     ['*] (->PullWildcard)
     [(a :guard keyword?)] (->PullAttribute a)
     [(m :guard map?)] (->PullMap m)
     [([(a :guard keyword?) & options] :seq)] (->PullAttributeWithOptions
                                               a (apply hash-map options))
-    :else (throw (ex-info "Invalid pull element" {:element element}))))
+    :else (throw (ex-info "Invalid pull element" {:element form}))))
 
-(defn pull-pattern [pattern]
-  (->PullPattern (map pull-element pattern)))
+(defn pull-pattern [form]
+  (->PullPattern (map pull-element form)))
+
+(defn rule [form]
+  (match [form]
+    [[([(name :guard symbol?) [& required-vars]
+        & vars] :seq) & clauses]] (->Rule name required-vars vars
+                                          (map where-clause clauses))
+    [[([(name :guard symbol?)
+        & vars] :seq) & clauses]] (->Rule name nil vars
+                                          (map where-clause clauses))
+    :else (throw (ex-info "Invalid rule definition" {:rule form}))))
+
+(defn rules [form]
+  (map rule form))

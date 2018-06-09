@@ -1,8 +1,12 @@
 http://blog.teamtreehouse.com/building-a-syntax-highlighted-input-box-with-javascript
 https://microsoft.github.io/monaco-editor/index.html
-* what next
-- test everything again and start using it.
-  performance is shiet
+* what for using it
+- stable external api
+  pretty much done for what i need to use
+- deploy and shit
+  compile and deploy to npm - use via unpkg $version?
+- tests tests tests
+- rules
 * rewriting query to use a parser
 while trying to add :with i realized that i had not been removing unused variables from the result rows
 this meant the medusa head problem was working without with even though it shouldn't - rows were not collapsed as
@@ -58,6 +62,8 @@ whole at top level.
 -> good to know - so rule is resolved the same
 
 * ToDo
+- extensibility - e.g. fulltext search on top of set, sorted-set?
+  a new db type until i decide on how extensibility should work
 - async?
   to allow async dbs (e.g. localstorage) where/resolve-clauses must return relations as promise ->
   whole where implementation has to change as resolve-clauses is called internally
