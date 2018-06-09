@@ -1,10 +1,10 @@
 (ns yadat.query
+  (:refer-clojure :exclude [resolve])
   (:require [yadat.util :as util]
             [yadat.relation :as r]
             [yadat.parser :as parser]
             [yadat.db :as db]
-            [clojure.set :as set]
-            [yadat.pull :as pull]))
+            [clojure.set :as set]))
 
 (def default-pull-limit 1000)
 
@@ -24,6 +24,18 @@
 
 (defprotocol PullElement
   (resolve-pull-element [this db entity]))
+
+(defn apply-function [rows raw-f raw-args raw-vars]
+  (let [f (util/resolve-symbol raw-f)]
+    (map (fn [r] (let [args (mapv #(get r % %) raw-args)
+                       result (apply f args)]
+                   (if (= (count raw-vars) 1)
+                     (into r [[(first raw-vars) result]])
+                     (into r (map vector result raw-vars))))) rows)))
+
+(defn apply-predicate [rows raw-f raw-args]
+  (let [f (util/resolve-symbol raw-f)]
+    (filter (fn [b] (apply f (mapv #(get b % %) raw-args))) rows)))
 
 (defn extend-entity
   [db entity a datoms options]
@@ -82,7 +94,7 @@
               (resolve-clause (parser/->AndClause clause) db relations))
           out-relations (mapcat f clauses)
           or-relations (remove (set relations) out-relations)
-          or-relation (r/merge or-relations r/union)]
+          or-relation (r/merge r/union or-relations)]
       (conj relations or-relation)))
 
   yadat.parser.NotClause
@@ -90,23 +102,23 @@
     (let [and-clause (parser/->AndClause clauses)
           out-relations (resolve-clause and-clause db relations)
           not-relations (remove (set relations) out-relations)
-          not-relation (r/merge not-relations r/inner-join)
-          [relations relation] (r/split relations (:columns not-relation))
+          not-relation (r/merge r/inner-join not-relations)
+          [relations relation] (r/split (:columns not-relation) relations)
           new-relation (r/disjoin relation not-relation)]
       (conj relations new-relation)))
 
   yadat.parser.FunctionClause
   (resolve-clause [{:keys [args vars f]} db relations]
-    (let [[relations relation] (r/split relations (filter util/var? args))
-          rows (util/apply-function (:rows relation) f args vars)
+    (let [[relations relation] (r/split (filter util/var? args) relations)
+          rows (apply-function (:rows relation) f args vars)
           columns (into (:columns relation) vars)
           relation (r/relation columns rows)]
       (conj relations relation)))
 
   yadat.parser.PredicateClause
   (resolve-clause [{:keys [args f]} db relations]
-    (let [[relations relation] (r/split relations (filter util/var? args))
-          rows (util/apply-predicate (:rows relation) f args)
+    (let [[relations relation] (r/split (filter util/var? args) relations)
+          rows (apply-predicate (:rows relation) f args)
           relation (r/relation (:columns relation) rows)]
       (conj relations relation)))
 
@@ -217,8 +229,9 @@
   (let [find (parser/find-spec (:find query))
         variables (set (concat (spec-vars find) (:with query)))
         ;; in (resolve-in (or (:in query) '[$])
-        clause (parser/->AndClause (map parser/parse-clause (:where query)))
-        tuples (->> (r/merge (resolve-clause clause db []) r/inner-join)
+        clause (parser/->AndClause (map parser/clause (:where query)))
+        tuples (->> (resolve-clause clause db [])
+                    (r/merge r/inner-join)
                     :rows
                     (map #(select-keys % variables)))]
     (resolve-find-spec find db tuples)))

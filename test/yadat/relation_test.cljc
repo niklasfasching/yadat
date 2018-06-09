@@ -42,7 +42,7 @@
   (let [r1 (r/relation #{:a :b} #{{:a 1 :b 1} {:a 2 :b 2}})
         r2 (r/relation #{:b :c} #{{:b 1 :c 1} {:b 2 :c 2}})
         r3 (r/relation #{:c :d} #{{:c 1 :d 1} {:c 2 :d 2}})
-        {:keys [columns rows] :as r-out} (r/merge [r1 r2 r3] r/inner-join)]
+        {:keys [columns rows] :as r-out} (r/merge r/inner-join [r1 r2 r3])]
     (is (= columns #{:a :b :c :d}))
     (is (= rows #{{:a 1 :b 1 :c 1 :d 1}
                   {:a 2 :b 2 :c 2 :d 2}}))))
@@ -51,7 +51,7 @@
   (let [r1 (r/relation #{:a :b} #{{:a 1 :b 1} {:a 2 :b 2}})
         r2 (r/relation #{:b :c} #{{:b 1 :c 1} {:b 2 :c 2}})
         r3 (r/relation #{:c :d} #{{:c 1 :d 1} {:c 2 :d 2}})
-        [rs r] (r/split [r1 r2 r3] '#{:b})]
+        [rs r] (r/split '#{:b} [r1 r2 r3])]
     (is (= rs [r3]))
     (is (= (:columns r) #{:a :b :c}))
     (is (= (:rows r) #{{:a 1 :b 1 :c 1}

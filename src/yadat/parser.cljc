@@ -26,18 +26,18 @@
 (defrecord PullAttributeWithOptions [a options])
 (defrecord PullAttributeExpression [a options])
 
-(defn clause [clause]
-  (match [clause]
-    [(['or & clauses] :seq)] (->OrClause (map parse-clause clauses))
-    [(['not & clauses] :seq)] (->NotClause (map parse-clause clauses))
-    [(['and & clauses] :seq)] (->AndClause (map parse-clause clauses))
+(defn clause [raw-clause]
+  (match [raw-clause]
+    [(['or & clauses] :seq)] (->OrClause (map clause clauses))
+    [(['not & clauses] :seq)] (->NotClause (map clause clauses))
+    [(['and & clauses] :seq)] (->AndClause (map clause clauses))
     [[([f & args] :seq)]] (->PredicateClause f args)
     [[([f & args] :seq) vars]] (->FunctionClause f args vars)
     [[_ _ _]] (->PatternClause clause)
     :else (throw (ex-info "Invalid clause" {:clause clause}))))
 
 (defn where-clauses [clauses]
-  (->AndClause (map parse-clause clauses)))
+  (->AndClause (map clause clauses)))
 
 (defn find-element [element]
   (match [element]
@@ -64,4 +64,4 @@
     :else (throw (ex-info "Invalid pull element" {:element element}))))
 
 (defn pull-pattern [pattern]
-  (->Pull (map pull-element pattern)))
+  (->PullPattern (map pull-element pattern)))

@@ -41,7 +41,7 @@
   "Combines `relations` into a single relation.
   Relations with shared columns are merged with (`f` r1 r2). Unrelated
   relations are merged with `cross-join-relations`."
-  [relations f]
+  [f relations]
   (loop [[r1 r2 & rs] relations
          out-rs []]
     (cond
@@ -54,8 +54,8 @@
   "Splits `relations` on `columns`. Returns [relations relation].
   relation is the `inner-join` of all relations intersecting `columns`,
   relations are all remaining relations."
-  [relations columns]
+  [columns relations]
   (let [groups (group-by #(intersect? (relation columns nil) %) relations)
         {intersecting-relations true relations false} groups
-        intersecting-relation (merge intersecting-relations inner-join)]
+        intersecting-relation (merge inner-join intersecting-relations)]
     [relations intersecting-relation]))

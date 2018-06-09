@@ -1,9 +1,8 @@
 http://blog.teamtreehouse.com/building-a-syntax-highlighted-input-box-with-javascript
 https://microsoft.github.io/monaco-editor/index.html
-
--> nice small parser!
-https://github.com/punitrathore/clj-parser/blob/master/src/clj_parser/core.clj
-
+* what next
+- test everything again and start using it.
+  performance is shiet
 * rewriting query to use a parser
 while trying to add :with i realized that i had not been removing unused variables from the result rows
 this meant the medusa head problem was working without with even though it shouldn't - rows were not collapsed as
@@ -23,32 +22,8 @@ gets us all the way as far as i can see :)
 
 make it work first - later make it pretty with a parser
 learn some more first i guess
-* find agg
 
-;; 2 axis: filter, projections
-;; scalar:     1, 1
-;; tuple:      1, n
-;; collection: n, 1
-;; relation:   n, n
-;; only relation & collection can be grouped
-;; so....
-
-
-!aggregate elements group by
-aggregating means taking result tuples,
-grouping them by the non-aggregate variables
-and then aggregating the groups
-and then returning the group tuples and normal tuples as a tuple
-so map over map and extend concat k and v
-
-alternatively, an immediate aggregate would be nice
-
-figure out which values are aggs and when resolving those immediately reduce them
-that would mean doing a transduce per row and each step applying (f agg row) and saving the result
-grouped by the grouping tuples
-in the end
-
-* parsing
+** parsing
 - use clojure spec conform as parser :o???
   #+BEGIN_SRC clojure
   (s/def ::config (s/*
@@ -60,7 +35,6 @@ in the end
   ;;    {:prop "-user", :val [:s "joe"]}]
   #+END_SRC
 -> not that pretty as conform does not leave much freedom regarding actual transforming
-
 * in
 $... src-var is a db
 % rules-var
@@ -82,33 +56,6 @@ One can imagine or clauses turn into an invocation of an anonymous rule whose pr
 As with rules, src-vars are not currently supported within the clauses of or, but are supported on the or clause as a
 whole at top level.
 -> good to know - so rule is resolved the same
-
-* on macro grammar parser
-https://dev.clojure.org/display/design/Macro+Grammars
-* next
-
-using match parsing is pretty much a solved problem
-thing is, i don't know where to implement the stuff
-extending the records in the parser is kinda ugly
-extending them somewhere else means i have to import all of them (e.g. in query)
-
-validation is missing... rewrite the parser later to have error messages
-for now implement using the parsed records extending resolve
-
-clause resolve [db relations clause]
-find spec resolve [db tuples spec]
-find element resolve [db row element]
-pull spec resolve [db entity spec]
-
-db
-could extend parsed from other ns if wanted
-(extend-protocol XmlNode
-  yadat.pull.PullAttribute
-  (as-xml [this] "pullAttribute"))
-
-(as-xml (pull/->PullAttribute nil))
-(to-xml (pull/->PullAttribute nil))
-
 
 * ToDo
 - async?
@@ -153,7 +100,6 @@ could extend parsed from other ns if wanted
   - alternative db implementations: data.avl, hitchhiker tree
   - performance tests using CC datasets, e.g. [[https://datacatalog.worldbank.org/search?sort_by=field_wbddh_modified_date&search_api_views_fulltext_op=AND&sort_order=DESC][worldbank]]
   - magic set transformation
-* Won't do ToDo (out of scope for now)
 - db.fn
 - multiple / customizable sources (databases)
 * limitations
@@ -548,6 +494,8 @@ of constants in a query for restricting the possible search space by considering
 instantiation that is sufficient to answer the query in question. In order to do this, a top–down computation for answering
 the query is simulated in an abstract way.
 * Resources
+- https://dev.clojure.org/display/design/Macro+Grammars
+  parsing macro grammars (~ parsing the datalog dsl forms)
 - https://github.com/mixu/datalog.js
 - https://github.com/rntz/datafun/blob/master/mini-datafun.rkt
 - https://github.com/frankmcsherry/blog/blob/master/posts/2018-05-19.md

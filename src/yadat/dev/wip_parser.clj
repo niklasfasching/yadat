@@ -1,4 +1,6 @@
 (ns yadat.dev.wip-parser)
+;; also
+;; https://github.com/punitrathore/clj-parser/blob/master/src/clj_parser/core.clj
 
 ;; (defrecord Either [value error])
 
