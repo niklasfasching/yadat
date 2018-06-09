@@ -83,7 +83,10 @@ As with rules, src-vars are not currently supported within the clauses of or, bu
 whole at top level.
 -> good to know - so rule is resolved the same
 
+* on macro grammar parser
+https://dev.clojure.org/display/design/Macro+Grammars
 * next
+
 using match parsing is pretty much a solved problem
 thing is, i don't know where to implement the stuff
 extending the records in the parser is kinda ugly

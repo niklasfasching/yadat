@@ -1,7 +1,7 @@
 (ns yadat.query
-  (:require [clojure.core.match :refer [match]]
-            [yadat.util :as util]
+  (:require [yadat.util :as util]
             [yadat.relation :as r]
+            [yadat.parser :as parser]
             [yadat.db :as db]
             [clojure.set :as set]
             [yadat.pull :as pull]))
@@ -19,179 +19,11 @@
 (defprotocol Clause
   (resolve-clause [this db relations]))
 
-(defprotocol PullSpec
-  (resolve-pull-spec [this db eid]))
+(defprotocol PullPattern
+  (resolve-pull-pattern [this db eid]))
 
 (defprotocol PullElement
   (resolve-pull-element [this db entity]))
-
-(defrecord AndClause [clauses]
-  Clause
-  (resolve-clause [_ db relations]
-    (loop [[clause & clauses] clauses
-           relations relations]
-      (if (and (nil? clause) (nil? clauses))
-        relations
-        (recur clauses (resolve-clause clause db relations))))))
-
-(defrecord OrClause [clauses]
-  Clause
-  (resolve-clause [_ db relations]
-    (let [out-relations (mapcat #(resolve-clause (->AndClause %) db relations)
-                                clauses)
-          or-relations (remove (set relations) out-relations)
-          or-relation (r/merge or-relations r/union)]
-      (conj relations or-relation))))
-
-(defrecord NotClause [clauses]
-  Clause
-  (resolve-clause [_ db relations]
-    (let [out-relations (resolve-clause (->AndClause clauses) db relations)
-          not-relations (remove (set relations) out-relations)
-          not-relation (r/merge not-relations r/inner-join)
-          [relations relation] (r/split relations (:columns not-relation))
-          new-relation (r/disjoin relation not-relation)]
-      (conj relations new-relation))))
-
-(defrecord FunctionClause [f args vars]
-  Clause
-  (resolve-clause [_ db relations]
-    (let [[relations relation] (r/split relations (filter util/var? args))
-          rows (util/apply-function (:rows relation) f args vars)
-          columns (into (:columns relation) vars)
-          relation (r/relation columns rows)]
-      (conj relations relation))))
-
-(defrecord PredicateClause [f args]
-  Clause
-  (resolve-clause [_ db relations]
-    (let [[relations relation] (r/split relations (filter util/var? args))
-          rows (util/apply-predicate (:rows relation) f args)
-          relation (r/relation (:columns relation) rows)]
-      (conj relations relation))))
-
-(defrecord PatternClause [pattern]
-  Clause
-  (resolve-clause [_ db relations]
-    (let [datom (map (fn [x] (if (or (util/var? x) (= x '_)) nil x)) pattern)
-          index (reduce-kv (fn [m i x]
-                             (if (util/var? x) (assoc m i x) m)) {} pattern)
-          datoms (db/select db datom)
-          rows (map #(reduce-kv (fn [row i x]
-                                  (if-let [variable (index i)]
-                                    (assoc row variable x)
-                                    row)) {} %) datoms)
-          relation (r/relation (vals index) rows)]
-      (conj relations relation))))
-
-(defrecord FindVariable [var]
-  FindElement
-  (element-vars [_] [var])
-  (resolve-find-element [_ db row]
-    (get row var)))
-
-(defrecord FindPull [var pattern]
-  FindElement
-  (element-vars [_] [var])
-  (resolve-find-element [_ db row]
-    (pull/resolve-pull-pattern pattern db (get row var))))
-
-(defrecord FindAggregate [f args]
-  FindElement
-  (element-vars [_] (filter util/var? args))
-  (resolve-find-element [_ db row]
-    (some #(if (util/var? %) (get row %)) args)))
-
-
-;; group by variables from with?
-(defn aggregate [elements tuples]
-  (let [aggregate-idx (reduce-kv (fn [m i e]
-                                   (if (instance? FindAggregate e)
-                                     (let [f (util/resolve-symbol (:f e))
-                                           constant-args (butlast (:args e))]
-                                       (assoc m i [f constant-args]))
-                                     m)) {} (vec elements))
-        group-indexes (set/difference (set (range (count elements)))
-                                      (set (keys aggregate-idx)))
-        groups (vals (group-by #(map (partial nth %) group-indexes) tuples))]
-    (map (fn [[tuple :as tuples]]
-           (mapv (fn [v i]
-                   (if-let [[f args] (get aggregate-idx i)]
-                     (apply f (concat args [(map #(nth % i) tuples)]))
-                     v)) tuple (range))) groups)))
-
-(defrecord FindScalar [element]
-  FindSpec
-  (spec-vars [_] (element-vars element))
-  (resolve-find-spec [_ db rows]
-    (resolve-find-element element db (first rows))))
-
-(defrecord FindTuple [elements]
-  FindSpec
-  (spec-vars [_] (mapcat element-vars elements))
-  (resolve-find-spec [_ db rows]
-    (mapv #(resolve-find-element % db (first rows)) elements)))
-
-(defrecord FindRelation [elements]
-  FindSpec
-  (spec-vars [_] (mapcat element-vars elements))
-  (resolve-find-spec [_ db rows]
-    (let [tuples (map (fn [row]
-                        (mapv #(resolve-find-element % db row) elements))
-                      rows)]
-      (if (some #(instance? FindAggregate %) elements)
-        (aggregate elements tuples)
-        tuples))))
-
-(defrecord FindCollection [element]
-  FindSpec
-  (spec-vars [_] (element-vars element))
-  (resolve-find-spec [_ db rows]
-    (let [values (map #(resolve-find-element element db %) rows)]
-      (if (instance? FindAggregate element)
-        (aggregate [element] (map vector values))
-        values))))
-
-(defrecord Pull [elements]
-  PullSpec
-  (resolve-pull-spec [_ db eid]
-    (loop [entity {:db/id eid}
-           [e & es] elements]
-      (if (and (nil? e) (nil? es))
-        entity
-        (recur (resolve-pull-element e db entity) es)))))
-
-(defrecord PullWildcard []
-  PullElement
-  (resolve-pull-element [_ db entity]
-    (let [datoms (db/select db [(:db/id entity) nil nil])]
-      (reduce (fn [entity [a datoms]]
-                (extend-entity db entity a datoms nil))
-              entity (group-by second datoms)))))
-
-(defrecord PullAttribute [a]
-  PullElement
-  (resolve-pull-element [_ db entity]
-    (let [datoms (select-datoms db entity a nil)]
-      (extend-entity db entity a datoms nil))))
-
-(defrecord PullMap [m]
-  PullElement
-  (resolve-pull-element [_ db entity]
-    (let [[raw-spec pattern] (first (seq m))
-          resolve (fn [eid] (resolve-pull-pattern pattern db eid)) ;; TODO
-          spec (if (keyword? raw-spec)
-                 [raw-spec :resolve resolve]
-                 (concat raw-spec [:resolve resolve]))]
-      (resolve-pull-element db entity spec))))
-
-(defrecord PullAttributeWithOptions [a options]
-  PullElement
-  (resolve-pull-element [_ db entity]
-    (let [datoms (select-datoms db entity a options)]
-      (extend-entity db entity a datoms options))))
-
-(defrecord PullAttributeExpression [a options])
 
 (defn extend-entity
   [db entity a datoms options]
@@ -202,7 +34,8 @@
                      (db/reverse-ref? a) {:db/id e}
                      resolve (resolve v)
                      (db/is? db a :component) (resolve
-                                               (->PullWildcard) db {:db/id v})
+                                               (parser/->PullWildcard)
+                                               db {:db/id v})
                      (db/is? db a :reference) {:db/id v}
                      :else v)) datoms)
         v-or-nil (if (db/is? db a :many) (not-empty vs) (first vs))
@@ -217,42 +50,175 @@
         datoms (take (or limit default-pull-limit) (db/select db query-datom))]
     datoms))
 
-(defn parse-clause [clause]
-  (match [clause]
-    [(['or & clauses] :seq)] (->OrClause (map parse-clause clauses))
-    [(['not & clauses] :seq)] (->NotClause (map parse-clause clauses))
-    [(['and & clauses] :seq)] (->AndClause (map parse-clause clauses))
-    [[([f & args] :seq)]] (->PredicateClause f args)
-    [[([f & args] :seq) vars]] (->FunctionClause f args vars)
-    [[_ _ _]] (->PatternClause clause)
-    :else (throw (ex-info "Invalid clause" {:clause clause}))))
+;; group by variables from with?
+(defn aggregate [elements tuples]
+  (let [aggregate-idx (reduce-kv (fn [m i e]
+                                   (if (instance? yadat.parser.FindAggregate e)
+                                     (let [f (util/resolve-symbol (:f e))
+                                           constant-args (butlast (:args e))]
+                                       (assoc m i [f constant-args]))
+                                     m)) {} (vec elements))
+        group-indexes (set/difference (set (range (count elements)))
+                                      (set (keys aggregate-idx)))
+        groups (vals (group-by #(map (partial nth %) group-indexes) tuples))]
+    (map (fn [[tuple :as tuples]]
+           (mapv (fn [v i]
+                   (if-let [[f args] (get aggregate-idx i)]
+                     (apply f (concat args [(map #(nth % i) tuples)]))
+                     v)) tuple (range))) groups)))
 
-(defn parse-find-element [element]
-  (match [element]
-    [(v :guard util/var?)] (->FindVariable v)
-    [(['pull (v :guard util/var?) [& pattern]] :seq)] (->FindPull v pattern)
-    [([f & args] :seq)] (->FindAggregate f args)
-    :else (throw (ex-info "Invalid find element" {:element element}))))
+(extend-protocol Clause
+  yadat.parser.AndClause
+  (resolve-clause [{:keys [clauses]} db relations]
+    (loop [[clause & clauses] clauses
+           relations relations]
+      (if (and (nil? clause) (nil? clauses))
+        relations
+        (recur clauses (resolve-clause clause db relations)))))
 
-(defn parse-find-spec [spec]
-  (match [spec]
-    [[e '.]] (->FindScalar (parse-find-element e))
-    [[[e '...]]] (->FindCollection (parse-find-element e))
-    [[[& es]]] (->FindTuple (map parse-find-element es))
-    [[& es]] (->FindRelation (map parse-find-element es))
-    :else (throw (ex-info "Invalid find spec" {:spec spec}))))
+  yadat.parser.OrClause
+  (resolve-clause [{:keys [clauses]} db relations]
+    (let [f (fn [clause]
+              (resolve-clause (parser/->AndClause clause) db relations))
+          out-relations (mapcat f clauses)
+          or-relations (remove (set relations) out-relations)
+          or-relation (r/merge or-relations r/union)]
+      (conj relations or-relation)))
 
-(defn parse-pull-element [element]
-  (match [element]
-    ['*] (->PullWildcard)
-    [(a :guard keyword?)] (->PullAttribute a)
-    [(m :guard map?)] (->PullMap m) ;; resolve it further into a sub-pull-pattern
-    [([(a :guard keyword?) & options] :seq)] (->PullAttributeWithOptions
-                                              a (apply hash-map options))
-    :else (throw (ex-info "Invalid pull element" {:element element}))))
+  yadat.parser.NotClause
+  (resolve-clause [{:keys [clauses]} db relations]
+    (let [and-clause (parser/->AndClause clauses)
+          out-relations (resolve-clause and-clause db relations)
+          not-relations (remove (set relations) out-relations)
+          not-relation (r/merge not-relations r/inner-join)
+          [relations relation] (r/split relations (:columns not-relation))
+          new-relation (r/disjoin relation not-relation)]
+      (conj relations new-relation)))
 
-(defn parse-pull-spec [pattern]
-  (->Pull (map parse-pull-element pattern)))
+  yadat.parser.FunctionClause
+  (resolve-clause [{:keys [args vars f]} db relations]
+    (let [[relations relation] (r/split relations (filter util/var? args))
+          rows (util/apply-function (:rows relation) f args vars)
+          columns (into (:columns relation) vars)
+          relation (r/relation columns rows)]
+      (conj relations relation)))
 
-(defn parse-where-clauses [clauses]
-  (->AndClause (map parse-clause clauses)))
+  yadat.parser.PredicateClause
+  (resolve-clause [{:keys [args f]} db relations]
+    (let [[relations relation] (r/split relations (filter util/var? args))
+          rows (util/apply-predicate (:rows relation) f args)
+          relation (r/relation (:columns relation) rows)]
+      (conj relations relation)))
+
+  yadat.parser.PatternClause
+  (resolve-clause [{:keys [pattern]} db relations]
+    (let [datom (map (fn [x] (if (or (util/var? x) (= x '_)) nil x)) pattern)
+          index (reduce-kv (fn [m i x]
+                             (if (util/var? x) (assoc m i x) m)) {} pattern)
+          datoms (db/select db datom)
+          rows (map #(reduce-kv (fn [row i x]
+                                  (if-let [variable (index i)]
+                                    (assoc row variable x)
+                                    row)) {} %) datoms)
+          relation (r/relation (vals index) rows)]
+      (conj relations relation))))
+
+(extend-protocol FindElement
+  yadat.parser.FindVariable
+  (element-vars [{:keys [var]}]
+    [var])
+  (resolve-find-element [{:keys [var]} db row]
+    (get row var))
+
+  yadat.parser.FindPull
+  (element-vars [{:keys [var]}]
+    [var])
+  (resolve-find-element [{:keys [pattern var]} db row]
+    (resolve-pull-pattern pattern db (get row var)))
+
+  yadat.parser.FindAggregate
+  (element-vars [{:keys [args]}]
+    (filter util/var? args))
+  (resolve-find-element [{:keys [args]} db row]
+    (some #(if (util/var? %) (get row %)) args)))
+
+(extend-protocol FindSpec
+  yadat.parser.FindScalar
+  (spec-vars [{:keys [element]}]
+    (element-vars element))
+  (resolve-find-spec [{:keys [element]} db rows]
+    (resolve-find-element element db (first rows)))
+
+  yadat.parser.FindTuple
+  (spec-vars [{:keys [elements]}]
+    (mapcat element-vars elements))
+  (resolve-find-spec [{:keys [elements]} db rows]
+    (mapv #(resolve-find-element % db (first rows)) elements))
+
+  yadat.parser.FindRelation
+  (spec-vars [{:keys [elements]}]
+    (mapcat element-vars elements))
+  (resolve-find-spec [{:keys [elements]} db rows]
+    (let [tuples (map (fn [row]
+                        (mapv #(resolve-find-element % db row) elements))
+                      rows)]
+      (if (some #(instance? yadat.parser.FindAggregate %) elements)
+        (aggregate elements tuples)
+        tuples)))
+
+  yadat.parser.FindCollection
+  (spec-vars [{:keys [element]}]
+    (element-vars element))
+  (resolve-find-spec [{:keys [element]} db rows]
+    (let [values (map #(resolve-find-element element db %) rows)]
+      (if (instance? yadat.parser.FindAggregate element)
+        (aggregate [element] (map vector values))
+        values))))
+
+(extend-protocol PullPattern
+  yadat.parser.PullPattern
+  (resolve-pull-pattern [{:keys [elements]} db eid]
+    (loop [entity {:db/id eid}
+           [e & es] elements]
+      (if (and (nil? e) (nil? es))
+        entity
+        (recur (resolve-pull-element e db entity) es)))))
+
+(extend-protocol PullElement
+  yadat.parser.PullWildcard
+  (resolve-pull-element [_ db entity]
+    (let [datoms (db/select db [(:db/id entity) nil nil])]
+      (reduce (fn [entity [a datoms]]
+                (extend-entity db entity a datoms nil))
+              entity (group-by second datoms))))
+
+  yadat.parser.PullAttribute
+  (resolve-pull-element [{:keys [a]} db entity]
+    (let [datoms (select-datoms db entity a nil)]
+      (extend-entity db entity a datoms nil)))
+
+  yadat.parser.PullMap
+  (resolve-pull-element [{:keys [m]} db entity]
+    (let [[raw-spec pattern] (first (seq m))
+          resolve (fn [eid] (resolve-pull-pattern pattern db eid))
+          spec (if (keyword? raw-spec)
+                 [raw-spec :resolve resolve]
+                 (concat raw-spec [:resolve resolve]))]
+      (resolve-pull-element db entity spec)))
+
+  yadat.parser.PullAttributeWithOptions
+  (resolve-pull-element [{:keys [a options]} db entity]
+    (let [datoms (select-datoms db entity a options)]
+      (extend-entity db entity a datoms options))))
+
+(defn resolve
+  "Resolve `query` map against `db`."
+  [db query]
+  (let [find (parser/find-spec (:find query))
+        variables (set (concat (spec-vars find) (:with query)))
+        ;; in (resolve-in (or (:in query) '[$])
+        clause (parser/->AndClause (map parser/parse-clause (:where query)))
+        tuples (->> (r/merge (resolve-clause clause db []) r/inner-join)
+                    :rows
+                    (map #(select-keys % variables)))]
+    (resolve-find-spec find db tuples)))

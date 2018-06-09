@@ -28,14 +28,8 @@
   "Queries `connection` for `query` map. Optionally takes further `inputs`.
   In cljs query map must be provided as an edn string."
   [connection query & inputs]
-  (let [db @connection
-        ;; in (resolve-in (or (:in query) '[$])
-        where (query/parse-where-clauses (:where query))
-        find (query/parse-find-spec (:find query))
-        relation (r/merge (query/resolve-clause where db []) r/inner-join)
-        variables (set (concat (query/spec-vars find) (:with query)))
-        tuples (set (map #(select-keys % variables) (:rows relation)))]
-    (query/resolve-find-spec find db tuples)))
+  (let [db @connection]
+    (query/resolve query db)))
 
 (defn pull [db eid pattern]
   (let [[_ eid] (cond
