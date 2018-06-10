@@ -37,19 +37,21 @@
   (let [f (util/resolve-symbol raw-f)]
     (filter (fn [b] (apply f (mapv #(get b % %) raw-args))) rows)))
 
+(defn datom->value [db [e a v :as datom]]
+  (cond
+    (and (db/reverse-ref? a) resolve) (resolve e)
+    (db/reverse-ref? a) {:db/id e}
+    resolve (resolve v)
+    (db/is? db a :component) (resolve
+                              (parser/->PullWildcard)
+                              db {:db/id v})
+    (db/is? db a :reference) {:db/id v}
+    :else v))
+
 (defn extend-entity
   [db entity a datoms options]
   (let [{:keys [resolve as default]} options
-        vs (mapv (fn [[e _ v :as datom]]
-                   (cond
-                     (and (db/reverse-ref? a) resolve) (resolve e)
-                     (db/reverse-ref? a) {:db/id e}
-                     resolve (resolve v)
-                     (db/is? db a :component) (resolve
-                                               (parser/->PullWildcard)
-                                               db {:db/id v})
-                     (db/is? db a :reference) {:db/id v}
-                     :else v)) datoms)
+        vs (mapv #(datom->value db %) datoms)
         v-or-nil (if (db/is? db a :many) (not-empty vs) (first vs))
         v (if (some? v-or-nil) v-or-nil default)
         k (or as a)]
@@ -90,8 +92,7 @@
 
   yadat.parser.OrClause
   (resolve-clause [{:keys [clauses]} db relations]
-    (let [f (fn [clause]
-              (resolve-clause (parser/->AndClause clause) db relations))
+    (let [f (fn [clause] (resolve-clause clause db relations))
           out-relations (mapcat f clauses)
           or-relations (remove (set relations) out-relations)
           or-relation (r/merge r/union or-relations)]
@@ -209,6 +210,9 @@
     (let [datoms (select-datoms db entity a nil)]
       (extend-entity db entity a datoms nil)))
 
+  ;; some of this stuff should be pulled out into the parser
+  ;; e.g. the [element pattern|recursion-limit part]
+  ;; no idea how to go from here yet
   yadat.parser.PullMap
   (resolve-pull-element [{:keys [m]} db entity]
     (let [[raw-spec pattern] (first (seq m))
@@ -216,7 +220,7 @@
           spec (if (keyword? raw-spec)
                  [raw-spec :resolve resolve]
                  (concat raw-spec [:resolve resolve]))]
-      (resolve-pull-element db entity spec)))
+      (resolve-pull-element spec db entity)))
 
   yadat.parser.PullAttributeWithOptions
   (resolve-pull-element [{:keys [a options]} db entity]
@@ -227,9 +231,10 @@
   "Resolve `query` map against `db`."
   [db query]
   (let [find (parser/find-spec (:find query))
+        where (parser/where-clauses (:where query))
         variables (set (concat (spec-vars find) (:with query)))
         ;; in (resolve-in (or (:in query) '[$])
-        tuples (->> (resolve-clause (parser/where-clauses (:where query)) db [])
+        tuples (->> (resolve-clause where db [])
                     (r/merge r/inner-join)
                     :rows
                     (map #(select-keys % variables)))]

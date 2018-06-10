@@ -65,10 +65,12 @@ whole at top level.
 - extensibility - e.g. fulltext search on top of set, sorted-set?
   a new db type until i decide on how extensibility should work
 - async?
+  https://github.com/tonsky/datascript/issues/190
   to allow async dbs (e.g. localstorage) where/resolve-clauses must return relations as promise
   -> would require db interaction to be async which snowballs into resolve-clause & pull becoming async
   it would probably be possible to provide a sync version by having sync dbs return results in fake promises and then just unwrap at the end
   but idk... there must be a prettier way
+  cljs doesn't support promises so left with core.async
 - schema validation
   ensure isComponent is a reference
   forbid many + unique in schema

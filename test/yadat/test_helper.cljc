@@ -9,7 +9,8 @@
                     :food/name [:unique-identity]})
 
 (def recipes [{:recipe/name "Spaghetti with tomato sauce"
-               :recipe/author {:author/name "Adam"
+               :recipe/author {:db/id 10
+                               :author/name "Adam"
                                :author/gender "M"}
                :recipe/ingredients [{:ingredient/food {:food/name "Spaghetti"
                                                        :food/category "Noodles"}
@@ -20,7 +21,8 @@
                                      :ingredient/quantity 2
                                      :ingredient/unit "package"}]}
               {:recipe/name "Bread with butter"
-               :recipe/author {:author/name "Eve"
+               :recipe/author {:db/id 20
+                               :author/name "Eve"
                                :author/gender "F"}
                :recipe/ingredients [{:ingredient/food {:food/name "Bread"
                                                        :food/category "Bread"}
@@ -30,14 +32,17 @@
                                                        :food/category "Fat"}
                                      :ingredient/quantity 3
                                      :ingredient/unit "scoops"}]}
-              {:recipe/name "Banana bread sandwhich"
-               :recipe/author {:author/name "Theo"
+              {:db/id 42
+               :recipe/name "Banana bread sandwhich"
+               :recipe/author {:db/id 30
+                               :author/name "Theo"
                                :author/gender "F"}
                :recipe/ingredients [{:ingredient/food {:food/name "Bread"
                                                        :food/category "Bread"}
                                      :ingredient/quantity 2
                                      :ingredient/unit "slice"}
-                                    {:ingredient/food {:food/name "Banana"
+                                    {:ingredient/food {:db/id 100
+                                                       :food/name "Banana"
                                                        :food/category "Fruit"}
                                      :ingredient/quantity 1
                                      :ingredient/unit "piece"}]}])

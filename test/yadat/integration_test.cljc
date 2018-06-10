@@ -7,6 +7,19 @@
              [yadat.db.minimal-db]
              [yadat.db.sorted-set-db]))
 
+
+
+(deftest failing-test
+  (testing "and (TODO missing ?name)"
+    (let [db (test-helper/recipe-db)
+          clause (parser/where-clause '(and [?id :food/name "Banana"]
+                                            [?id :food/category "Fruit"]
+                                            [?id :food/name ?name]))
+          [relation] (query/resolve-clause clause db [])]
+      (is (= (:columns relation) '#{?id ?name}))
+      (is (= (:rows relation) '#{{?id 100 ?name "Banana"}})))))
+
+
 (let [connection (datascript/create-conn test-helper/recipe-schema)
       query '{:find [?recipe-name]
               :where [[?recipe-id :recipe/name ?recipe-name]

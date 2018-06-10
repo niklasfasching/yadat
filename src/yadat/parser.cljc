@@ -49,7 +49,8 @@
 (defn find-element [form]
   (match [form]
     [(v :guard util/var?)] (->FindVariable v)
-    [(['pull (v :guard util/var?) [& pattern]] :seq)] (->FindPull v pattern)
+    [(['pull (v :guard util/var?) [& pattern]] :seq)] (->FindPull
+                                                       v (pull-pattern pattern))
     [([f & args] :seq)] (->FindAggregate f args)
     :else (throw (ex-info "Invalid find element" {:element form}))))
 
@@ -65,7 +66,8 @@
   (match [form]
     ['*] (->PullWildcard)
     [(a :guard keyword?)] (->PullAttribute a)
-    [(m :guard map?)] (->PullMap m)
+    [(m :guard map?)] (let [[element pattern] (first (seq m))]
+                        (->PullMap m))
     [([(a :guard keyword?) & options] :seq)] (->PullAttributeWithOptions
                                               a (apply hash-map options))
     :else (throw (ex-info "Invalid pull element" {:element form}))))
