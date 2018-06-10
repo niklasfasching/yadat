@@ -65,17 +65,10 @@ whole at top level.
 - extensibility - e.g. fulltext search on top of set, sorted-set?
   a new db type until i decide on how extensibility should work
 - async?
-  to allow async dbs (e.g. localstorage) where/resolve-clauses must return relations as promise ->
-  whole where implementation has to change as resolve-clauses is called internally
-  -> this in turn means all resolve-clause fns must be async
-  pull must be async
-  find must be async due to pull
+  to allow async dbs (e.g. localstorage) where/resolve-clauses must return relations as promise
+  -> would require db interaction to be async which snowballs into resolve-clause & pull becoming async
   it would probably be possible to provide a sync version by having sync dbs return results in fake promises and then just unwrap at the end
   but idk... there must be a prettier way
-
-  a big problem is the insert - query should be fine with async as limited steps
-  pull & transact though are possibly deeply nested -> run into problems with async where tail recursion is out of the window
-  actually async does not grow stack as put on hold in between.... nevermind
 - schema validation
   ensure isComponent is a reference
   forbid many + unique in schema

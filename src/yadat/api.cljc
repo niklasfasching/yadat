@@ -6,6 +6,7 @@
             [yadat.util :as util]
 
             [yadat.query :as query]
+            [yadat.parser :as parser]
 
             [yadat.relation :as r]))
 
@@ -29,7 +30,7 @@
   In cljs query map must be provided as an edn string."
   [connection query & inputs]
   (let [db @connection]
-    (query/resolve query db)))
+    (query/resolve db query)))
 
 (defn pull [db eid pattern]
   (let [[_ eid] (cond
@@ -37,7 +38,7 @@
                                            {:db db} eid)
                   (db/real-eid? db eid) [nil eid]
                   :else (throw (ex-info "Invalid eid" {:eid eid})))]
-    (query/resolve-pull-spec (query/parse-pull-spec pattern) db eid)))
+    (query/resolve-pull-pattern (parser/pull-pattern pattern) db eid)))
 
 ;; (defn slurp
 ;;   "Read db of type `t` from `f`.
