@@ -4,16 +4,9 @@
             [yadat.db.minimal]
             [yadat.db.sorted-set]
             [yadat.util :as util]
-            [yadat.dsl.minimal :as dsl]
+            [yadat.dsl :as dsl]
+            [yadat.dsl.minimal :as mdsl]
             [yadat.relation :as r]))
-
-(defn open
-  "Create a new db of `type` with `schema`. Returns a connection.
-  A connection is just an atom containing a db.
-  By default the `type`s :minimal & :sorted-set are supported. More types
-  can be added by extending `db/open`."
-  [type schema]
-  (atom (db/open type schema)))
 
 (defn insert
   "Insert `entities` into `connection`. Modifies `connection`."
@@ -22,12 +15,25 @@
                       (let [[transaction _] (db/transact db entities)]
                         (:db transaction)))))
 
+(defn open
+  "Create a new db of `type` with `schema`. Returns a connection.
+  Optionally inserts `entities` into db.
+  A connection is just an atom containing a db.
+  By default the `type`s :minimal & :sorted-set are supported. More types
+  can be added by extending `db/open`."
+  ([type schema]
+   (atom (db/open type schema)))
+  ([type schema entities]
+   (let [db (atom (db/open type schema))]
+     (insert db entities)
+     db)))
+
 (defn query
   "Queries `connection` for `query` map. Optionally takes further `inputs`.
   In cljs query map must be provided as an edn string."
   [connection query & inputs]
   (let [db @connection]
-    (query/resolve db query)))
+    (mdsl/query db query)))
 
 (defn pull [db eid pattern]
   (let [[_ eid] (cond
@@ -35,7 +41,7 @@
                                            {:db db} eid)
                   (db/real-eid? db eid) [nil eid]
                   :else (throw (ex-info "Invalid eid" {:eid eid})))]
-    (query/resolve-pull-pattern (parser/pull-pattern pattern) db eid)))
+    (dsl/resolve-pull-pattern (dsl/pull-pattern pattern) db eid)))
 
 ;; (defn slurp
 ;;   "Read db of type `t` from `f`.

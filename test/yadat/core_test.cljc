@@ -6,11 +6,10 @@
 
 (let [db (core/open :minimal {})]
   (core/insert db [{:name "Cerberus" :heads 3}
-                  {:name "Cerberus" :heads 2}
-                  {:name "Medusa" :heads 1}
-                  {:name "Cyclops" :heads 1}
-                  {:name "Chimera" :heads 1}])
-  (core/query db '{:find [?name (sum ?heads)]
-                  :with [?id]
-                  :where [[?id :heads ?heads]
-                          [?id :name ?name]]}))
+                   {:name "Medusa" :heads 1}
+                   {:name "Cyclops" :heads 1}
+                   {:name "Chimera" :heads 1}])
+  (core/query db '{:find [(sum ?heads)]
+                   :with [?id]
+                   :where [[?id :heads ?heads]
+                           [?id :name ?name]]}))

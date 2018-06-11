@@ -217,6 +217,7 @@
         ;; in (resolve-in (or (:in query) '[$])
         tuples (->> (dsl/resolve-clause where db [])
                     (r/merge r/inner-join)
-                    :rows
-                    (map #(select-keys % variables)))]
+                    (:rows)
+                    (map #(select-keys % variables))
+                    (set))]
     (dsl/resolve-find-spec find db tuples)))
