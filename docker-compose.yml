@@ -1,0 +1,17 @@
+version: "3"
+services:
+  datomic:
+    build:
+      context: ./datomic
+    expose:
+      - 4334
+      - 4335
+      - 4336
+  yadat:
+    image: clojure:alpine
+    volumes:
+      - .:/usr/src/yadat
+    working_dir: /usr/src/yadat
+    command: lein run -m yadat.integration-test
+    depends_on:
+      - datomic
