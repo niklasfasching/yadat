@@ -1,4 +1,4 @@
-(ns yadat.db.minimal-db
+(ns yadat.db.minimal
   (:require [yadat.db :as db]
             [yadat.util :as util]))
 

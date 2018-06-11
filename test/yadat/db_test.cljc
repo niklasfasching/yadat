@@ -2,7 +2,7 @@
   (:require [clojure.test :refer :all]
             [yadat.test-helper :as test-helper]
             [yadat.db :as db]
-            [yadat.db.minimal-db]))
+            [yadat.db.minimal]))
 
 (deftest resolve-eid-test
   (testing "real eid"

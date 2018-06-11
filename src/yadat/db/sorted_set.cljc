@@ -1,4 +1,4 @@
-(ns yadat.db.sorted-set-db
+(ns yadat.db.sorted-set
   (:require [yadat.db :as db]
             [yadat.util :as util]))
 

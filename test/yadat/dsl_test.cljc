@@ -1,4 +1,4 @@
-(ns yadat.parser-test
+(ns yadat.dsl-test
   (:require [yadat.parser :as parser]
             #?(:clj [clojure.test :as t]
                :cljs [cljs.test :as t :include-macros true])))

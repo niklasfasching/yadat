@@ -1,7 +1,7 @@
-(ns yadat.db.minimal-db-test
+(ns yadat.db.minimal-test
   (:require [clojure.test :refer :all]
             [yadat.db :as db]
-            [yadat.db.minimal-db :as mdb]))
+            [yadat.db.minimal :as mdb]))
 
 (deftest insert-test
   (let [db (-> (db/open :minimal {})

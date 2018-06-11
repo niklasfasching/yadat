@@ -4,8 +4,8 @@
              [yadat.test-helper :as test-helper]
              [yadat.query :as datalog]
              [yadat.db :as db]
-             [yadat.db.minimal-db]
-             [yadat.db.sorted-set-db]))
+             [yadat.db.minimal]
+             [yadat.db.sorted-set]))
 
 
 

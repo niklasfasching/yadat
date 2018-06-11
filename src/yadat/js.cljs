@@ -1,10 +1,10 @@
-(ns yadat.js-api
+(ns yadat.js
   (:require [cljs.reader :as reader]
             [clojure.walk :as walk]
-            [yadat.api :as api]
+            [yadat.core :as core]
             [yadat.db :as db]
-            [yadat.db.minimal-db]
-            [yadat.db.sorted-set-db]
+            [yadat.db.minimal]
+            [yadat.db.sorted-set]
             [yadat.query :as query]
             [yadat.util :as util]))
 
@@ -17,11 +17,11 @@
 (defn ^:export open [type schema]
   (let [schema (into {} (map (fn [[a ts]] [(keyword a) (map keyword ts)])
                              (js->clj schema)))]
-    (api/open (keyword type) schema)))
+    (core/open (keyword type) schema)))
 
 (defn ^:export insert [connection entities]
   (let [entities (walk/postwalk walk/keywordize-keys (js->clj entities))]
-    (api/insert connection entities)))
+    (core/insert connection entities)))
 
 (defn ^:export query [connection query-string]
   (let [query (reader/read-string query-string)]

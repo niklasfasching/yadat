@@ -1,10 +1,15 @@
+(ns yadat.dsl.minimal-test
+  (:require [yadat.dsl.minimal :as minimal]
+            #?(:clj [clojure.test :as t]
+               :cljs [cljs.test :as t :include-macros true]
+               [clojure.string :as string]
+               [yadat.query :as query]
+               [yadat.relation :as r]
+               [yadat.test-helper :as test-helper]
+               [yadat.parser :as parser])))
 (ns yadat.query-test
   (:require [clojure.test :refer :all]
-            [clojure.string :as string]
-            [yadat.query :as query]
-            [yadat.relation :as r]
-            [yadat.test-helper :as test-helper]
-            [yadat.parser :as parser]))
+            ))
 
 (def food-rows '[{?id 1 ?name "Bread"}
                  {?id 2 ?name "Banana"}

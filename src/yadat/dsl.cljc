@@ -1,7 +1,31 @@
-(ns yadat.parser
+(ns yadat.dsl
   (:require [clojure.core.match :refer [match]]
             [yadat.util :as util]))
 
+(defprotocol IRules
+  (resolve-rules [this db relations]))
+
+(defprotocol IRule
+  (resolve-rule [this db relations]))
+
+(defprotocol IFindElement
+  (resolve-find-element [this db row])
+  (element-vars [this]))
+
+(defprotocol IFindSpec
+  (resolve-find-spec [this db rows])
+  (spec-vars [this]))
+
+(defprotocol IClause
+  (resolve-clause [this db relations]))
+
+(defprotocol IPullPattern
+  (resolve-pull-pattern [this db eid]))
+
+(defprotocol IPullElement
+  (resolve-pull-element [this db entity]))
+
+(defrecord Rules [rules])
 (defrecord Rule [name required-vars vars clauses])
 
 (defrecord AndClause [clauses])
@@ -29,6 +53,19 @@
 (defrecord PullMap [m])
 (defrecord PullAttributeWithOptions [a options])
 (defrecord PullAttributeExpression [a options])
+
+(defn pull-element [form]
+  (match [form]
+    ['*] (->PullWildcard)
+    [(a :guard keyword?)] (->PullAttribute a)
+    [(m :guard map?)] (let [[element pattern] (first (seq m))]
+                        (->PullMap m))
+    [([(a :guard keyword?) & options] :seq)] (->PullAttributeWithOptions
+                                              a (apply hash-map options))
+    :else (throw (ex-info "Invalid pull element" {:element form}))))
+
+(defn pull-pattern [form]
+  (->PullPattern (map pull-element form)))
 
 (defn where-clause [form]
   (match [form]
@@ -62,19 +99,6 @@
     [[& es]] (->FindRelation (map find-element es))
     :else (throw (ex-info "Invalid find spec" {:spec form}))))
 
-(defn pull-element [form]
-  (match [form]
-    ['*] (->PullWildcard)
-    [(a :guard keyword?)] (->PullAttribute a)
-    [(m :guard map?)] (let [[element pattern] (first (seq m))]
-                        (->PullMap m))
-    [([(a :guard keyword?) & options] :seq)] (->PullAttributeWithOptions
-                                              a (apply hash-map options))
-    :else (throw (ex-info "Invalid pull element" {:element form}))))
-
-(defn pull-pattern [form]
-  (->PullPattern (map pull-element form)))
-
 (defn rule [form]
   (match [form]
     [[([(name :guard symbol?) [& required-vars]
@@ -86,4 +110,4 @@
     :else (throw (ex-info "Invalid rule definition" {:rule form}))))
 
 (defn rules [form]
-  (map rule form))
+  (->Rules (map rule form)))

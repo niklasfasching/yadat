@@ -1,19 +1,16 @@
-(ns yadat.api
+(ns yadat.core
   (:refer-clojure :exclude [spit slurp])
   (:require [yadat.db :as db]
-            [yadat.db.minimal-db]
-            [yadat.db.sorted-set-db]
+            [yadat.db.minimal]
+            [yadat.db.sorted-set]
             [yadat.util :as util]
-
-            [yadat.query :as query]
-            [yadat.parser :as parser]
-
+            [yadat.dsl.minimal :as dsl]
             [yadat.relation :as r]))
 
 (defn open
   "Create a new db of `type` with `schema`. Returns a connection.
   A connection is just an atom containing a db.
-  By default the `type`s :minimal & :sorted-set-db are supported. More types
+  By default the `type`s :minimal & :sorted-set are supported. More types
   can be added by extending `db/open`."
   [type schema]
   (atom (db/open type schema)))

@@ -1,6 +1,6 @@
-(ns yadat.db.sorted-set-db-test
+(ns yadat.db.sorted-set-test
   (:require [yadat.db :as db]
-            [yadat.db.sorted-set-db :as ssdb]
+            [yadat.db.sorted-set :as ssdb]
             [clojure.test :refer :all]))
 
 (deftest make-datom-comparator-test

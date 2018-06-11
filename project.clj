@@ -5,12 +5,12 @@
                  [datascript "0.16.5"]]
   :plugins [[lein-cljsbuild "1.1.7"]]
   :cljsbuild {:builds {:main {:source-paths ["src"]
-                              :compiler {:main yadat.api
+                              :compiler {:main yadat.core
                                          :optimizations :advanced
                                          :pretty-print true
                                          :output-to "target/main.js"}}
                        :js {:source-paths ["src"]
-                            :compiler {:main yadat.js-api
+                            :compiler {:main yadat.js
                                        :optimizations :advanced
                                        :pretty-print true
                                        :output-to "resources/main.js"}}}}
