@@ -19,22 +19,21 @@
   (let [f (util/resolve-symbol raw-f)]
     (filter (fn [b] (apply f (mapv #(get b % %) raw-args))) rows)))
 
-(defn datom->value [db [e a v :as datom]]
+(defn datom->value [db f [e a v :as datom]]
   (cond
-    (and (db/reverse-ref? a) resolve) (resolve e)
+    (and (db/reverse-ref? a) f) (f e)
     (db/reverse-ref? a) {:db/id e}
-    resolve (resolve v)
-    (db/is? db a :component) (resolve
-                              (dsl/->PullWildcard)
-                              db {:db/id v})
+    f (f v)
+    (db/is? db a :component) (f (dsl/->PullWildcard) db {:db/id v})
     (db/is? db a :reference) {:db/id v}
     :else v))
 
 (defn extend-entity
   [db entity a datoms options]
   (let [{:keys [resolve as default]} options
-        vs (mapv #(datom->value db %) datoms)
-        v-or-nil (if (db/is? db a :many) (not-empty vs) (first vs))
+        v-or-nil (if (db/is? db a :many)
+                   (not-empty (mapv #(datom->value db resolve %) datoms))
+                   (datom->value db resolve (first datoms)))
         v (if (some? v-or-nil) v-or-nil default)
         k (or as a)]
     (assoc entity k v)))

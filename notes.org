@@ -1,44 +1,15 @@
+* how use
+generic rss, i.e. rss OR scrape rule
+-> feed of updates of interest
+-> this generalizes the wg-gesucht scraper & rss feed and stuff
+-> hooks to act on new feed items, e.g. send telegram message, reply to ad, ...
+* next
+- stabilize external api first - HOLD features
+- write tests - match datascript
+* demo
+web editor for datalog query, update results
 http://blog.teamtreehouse.com/building-a-syntax-highlighted-input-box-with-javascript
 https://microsoft.github.io/monaco-editor/index.html
-* what for using it
-- stable external api
-  pretty much done for what i need to use
-- deploy and shit
-  compile and deploy to npm - use via unpkg $version?
-- tests tests tests
-- rules
-* rewriting query to use a parser
-while trying to add :with i realized that i had not been removing unused variables from the result rows
-this meant the medusa head problem was working without with even though it shouldn't - rows were not collapsed as
-they did not merely contain the :heads but also :name - which should have been removed not being part of the find
-to figure out what variables are used in find and should be kept in the rows i would have to parse everything again and distinguish spec types
-and element types...
-this lead me to consider using a parser.
-interestingly, a 80% workaroud is just (filter var? (flatten find-spec))
-this only runs into problems with (pull) that contains (x :as ?variable-looking-thing)
-an ugly 100% would be just flattenging once!
-
-(defn flatten-1 [x]
-  (mapcat #(if (sequential? %) % [%]) x))
-(filter util/var? (flatten-1 find-spec))
-
-gets us all the way as far as i can see :)
-
-make it work first - later make it pretty with a parser
-learn some more first i guess
-
-** parsing
-- use clojure spec conform as parser :o???
-  #+BEGIN_SRC clojure
-  (s/def ::config (s/*
-                    (s/cat :prop string?
-                           :val  (s/alt :s string? :b boolean?))))
-  (s/conform ::config ["-server" "foo" "-verbose" true "-user" "joe"])
-  ;;=> [{:prop "-server", :val [:s "foo"]}
-  ;;    {:prop "-verbose", :val [:b true]}
-  ;;    {:prop "-user", :val [:s "joe"]}]
-  #+END_SRC
--> not that pretty as conform does not leave much freedom regarding actual transforming
 * in
 $... src-var is a db
 % rules-var
@@ -55,13 +26,9 @@ pattern-var is a symbol
 ;; same as spec type - scalar, tuple, collection, relation - but look different
 
 ;; i think extending to collections is all i need for :in
-* on or vs rules
-One can imagine or clauses turn into an invocation of an anonymous rule whose predicates comprise the or clauses.
-As with rules, src-vars are not currently supported within the clauses of or, but are supported on the or clause as a
-whole at top level.
--> good to know - so rule is resolved the same
-
 * ToDo
+- implement rules
+  or-clause ~ invocation of anonymous rule whose predicates make up clause
 - extensibility - e.g. fulltext search on top of set, sorted-set?
   a new db type until i decide on how extensibility should work
 - async?
@@ -104,6 +71,38 @@ whole at top level.
   - magic set transformation
 - db.fn
 - multiple / customizable sources (databases)
+* rewriting query to use a parser
+while trying to add :with i realized that i had not been removing unused variables from the result rows
+this meant the medusa head problem was working without with even though it shouldn't - rows were not collapsed as
+they did not merely contain the :heads but also :name - which should have been removed not being part of the find
+to figure out what variables are used in find and should be kept in the rows i would have to parse everything again and distinguish spec types
+and element types...
+this lead me to consider using a parser.
+interestingly, a 80% workaroud is just (filter var? (flatten find-spec))
+this only runs into problems with (pull) that contains (x :as ?variable-looking-thing)
+an ugly 100% would be just flattenging once!
+
+(defn flatten-1 [x]
+  (mapcat #(if (sequential? %) % [%]) x))
+(filter util/var? (flatten-1 find-spec))
+
+gets us all the way as far as i can see :)
+
+make it work first - later make it pretty with a parser
+learn some more first i guess
+
+** parsing
+- use clojure spec conform as parser :o???
+  #+BEGIN_SRC clojure
+  (s/def ::config (s/*
+                    (s/cat :prop string?
+                           :val  (s/alt :s string? :b boolean?))))
+  (s/conform ::config ["-server" "foo" "-verbose" true "-user" "joe"])
+  ;;=> [{:prop "-server", :val [:s "foo"]}
+  ;;    {:prop "-verbose", :val [:b true]}
+  ;;    {:prop "-user", :val [:s "joe"]}]
+  #+END_SRC
+-> not that pretty as conform does not leave much freedom regarding actual transforming
 * limitations
 - sorted-set does not support non-comparable, non-reference many values
   same for datascript though
@@ -114,6 +113,10 @@ whole at top level.
 - https://github.com/subhash/clj-stack/wiki/Datomic-from-the-ground-up
 - explain why datoms are arrays rather than maps - actually forgot but there was some
   good reason because i switched over from it
+  datom as map is more verbose without winning much - we know that datoms will never
+  have more than 3 (5 with tx & remove/add) fields, which is manageable and
+  better reflects how datalog is used to match on datoms
+  -> symmetry with datalog
 * optimization & rewriting
 on query optimization in datomic (hint: not done)
 https://groups.google.com/forum/#!msg/datomic/t7qKyVUqqqM/kPz4KSVqXuIJ
