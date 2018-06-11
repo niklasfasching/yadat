@@ -2,6 +2,9 @@
   (:require [clojure.core.match :refer [match]]
             [yadat.util :as util]))
 
+(defprotocol IQuery
+  (resolve-query [this inputs relations]))
+
 (defprotocol IRules
   (resolve-rules [this db relations]))
 
@@ -24,6 +27,8 @@
 
 (defprotocol IPullElement
   (resolve-pull-element [this db entity]))
+
+(defrecord Query [find where in with])
 
 (defrecord Rules [rules])
 (defrecord Rule [name required-vars vars clauses])
@@ -111,3 +116,11 @@
 
 (defn rules [form]
   (->Rules (map rule form)))
+
+;; inputs cannot be parsed at query parse time, must be resolved to relations and shit at execution time
+(defn query [form]
+  (->Query
+   (find-spec (:find form))
+   (where-clauses (:where form))
+   nil
+   nil))
