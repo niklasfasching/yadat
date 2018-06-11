@@ -58,7 +58,7 @@
   (match [form]
     ['*] (->PullWildcard)
     [(a :guard keyword?)] (->PullAttribute a)
-    [(m :guard map?)] (let [[element pattern] (first (seq m))]
+    [(m :guard map?)] (let [[element pattern] (first (seq m))] ;; todo
                         (->PullMap m))
     [([(a :guard keyword?) & options] :seq)] (->PullAttributeWithOptions
                                               a (apply hash-map options))
