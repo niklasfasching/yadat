@@ -10,6 +10,7 @@ WORKDIR datomic-free-${DATOMIC_VERSION}
 
 RUN cp ./config/samples/free-transactor-template.properties transactor.properties
 RUN sed "s/host=localhost/host=0.0.0.0/" -i transactor.properties
+RUN sed "/host=0.0.0.0/a alt-host=172.17.0.1" -i transactor.properties
 
 EXPOSE 4334 4335 4336
 

@@ -40,6 +40,7 @@ pattern-var is a symbol
   but idk... there must be a prettier way
   cljs doesn't support promises so left with core.async
 - schema validation
+  see https://docs.datomic.com/on-prem/schema.html - this also specifies transaction
   ensure isComponent is a reference
   forbid many + unique in schema
 - validation
