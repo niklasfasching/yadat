@@ -1,3 +1,9 @@
+* dataset
+https://www.ars.usda.gov/northeast-area/beltsville-md-bhnrc/beltsville-human-nutrition-research-center/nutrient-data-laboratory/docs/sr28-download-files/
+
+* testing
+use lein junit? pretty test results in CI
+later...
 * how use
 generic rss, i.e. rss OR scrape rule
 -> feed of updates of interest

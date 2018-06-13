@@ -172,8 +172,25 @@
   (when-let [a (get attributes (:a datum))]
     [(:e datum) a (:v datum)]))
 
+
+(def uri "datomic:free://localhost:4334/mbrainz-1968-1973")
+(def conn (datomic/connect uri))
+(def db (datomic/db conn))
+(def datoms (take 100000000 (datomic/datoms db :eavt)))
 (binding [*print-length* nil]
-  (spit "mbrainz-datoms.edn" (pr-str (remove nil? (map ->yadat-datom (datomic/datoms db :eavt))))))
+  (spit "mbrainz-datomic-datoms.edn"
+        (pr-str (take 100000000 (datomic/datoms db :eavt)))))
+
+
+(def uri-mem "datomic:mem://foobar")
+(datomic/create-database uri-mem)
+(def conn-mem (datomic/connect uri-mem))
+(def db-mem (datomic/db conn-mem))
+(datomic/transact conn-mem datoms)
+(require '[datomic.db])
+
+
+
 
 (def datoms (clojure.edn/read-string (slurp "mbrainz-datoms.edn")))
 
