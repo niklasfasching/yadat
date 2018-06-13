@@ -2,8 +2,31 @@
 https://www.ars.usda.gov/northeast-area/beltsville-md-bhnrc/beltsville-human-nutrition-research-center/nutrient-data-laboratory/docs/sr28-download-files/
 
 * testing
+there's a lot of example queries
+-> need to figure out what features i actually want to test and then test those against the datomic result for integration
+-> also datascript (just for perf)
+
+- need to get test data
+- using something similiar to the mbrainz dataset sounds like a good idea
+- easiest would be using mbrainz but
+  large (30-50mb)
+  import into datomic/yadat not easy in memory (w/o docker)
+  -> could create it myself using datomic etl job for it - but that won't persist between builds in travis
+  -> slow and not being a good citizen
+
+- so... a subset of mbrainz would be awesome...
+- get 2-3 artists will everything related? if i could change the schema to treat related as components that should be easy
+
+-> not that easy as pulling still keeps the datomic relation shit, i.e. track/artists refernces artist
+
+-> country artist release medium track?
+-> idk... what about lsf data?
+
+
 use lein junit? pretty test results in CI
 later...
+
+
 * how use
 generic rss, i.e. rss OR scrape rule
 -> feed of updates of interest

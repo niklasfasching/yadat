@@ -176,6 +176,7 @@
 (def uri "datomic:free://localhost:4334/mbrainz-1968-1973")
 (def conn (datomic/connect uri))
 (def db (datomic/db conn))
+
 (def datoms (take 100000000 (datomic/datoms db :eavt)))
 (binding [*print-length* nil]
   (spit "mbrainz-datomic-datoms.edn"
@@ -188,8 +189,6 @@
 (def db-mem (datomic/db conn-mem))
 (datomic/transact conn-mem datoms)
 (require '[datomic.db])
-
-
 
 
 (def datoms (clojure.edn/read-string (slurp "mbrainz-datoms.edn")))
@@ -221,6 +220,12 @@
                                                 [?r :release/media ?m]
                                                 [?r :release/name  ?album]
                                                 [?r :release/year  ?year]]} db)))
+
+(datomic/q '{:find [(pull ?a [* {:artist/type [*]} {:artist/gender [*]}])]
+             :where [[?a :artist/name   "John Lennon"]]} db)
+(first (datomic/q '{:find [(pull ?t [*])]
+                    :where [[?a :artist/name "John Lennon"]
+                            [?t :track/artists ?a]]} db))
 
 (= (sort yadat-results) (sort datomic-results)) ;; => true... 500ms vs 10s though lol
 
@@ -261,6 +266,10 @@ datomic.impl.db.IDatum
                :where [[?e :person/email _]]}
              db))
 
+(datomic/q '{:find [?a]
+             :where [[_ ?aid _]
+                     [?aid :db/ident ?a]]}
+           db)
 
 
 ;; example queries
