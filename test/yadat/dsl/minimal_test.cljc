@@ -8,6 +8,19 @@
             [yadat.dsl :as dsl]
             [yadat.dsl.minimal]))
 
+
+
+;; (deftest failing-test
+;;   (testing "and (TODO missing ?name)"
+;;     (let [db (test-helper/recipe-db)
+;;           clause (parser/where-clause '(and [?id :food/name "Banana"]
+;;                                             [?id :food/category "Fruit"]
+;;                                             [?id :food/name ?name]))
+;;           [relation] (query/resolve-clause clause db [])]
+;;       (is (= (:columns relation) '#{?id ?name}))
+;;       (is (= (:rows relation) '#{{?id 100 ?name "Banana"}})))))
+
+
 (def food-rows '[{?id 1 ?name "Bread"}
                  {?id 2 ?name "Banana"}
                  {?id 3 ?name "Butter"}])

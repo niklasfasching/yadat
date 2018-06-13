@@ -35,6 +35,13 @@
   (let [db @connection]
     (mdsl/query db query)))
 
+(defn q
+  "Queries `connection` for `query` map. Optionally takes further `inputs`.
+  In cljs query map must be provided as an edn string."
+  [query connection & inputs]
+  (let [db @connection]
+    (mdsl/query db query)))
+
 (defn pull [db eid pattern]
   (let [[_ eid] (cond
                   (db/lookup-ref? db eid) (db/resolve-lookup-ref-eid
@@ -56,3 +63,7 @@
   See `clojure.java.io/writer` for a list of supported values for `f`."
   [db f]
   (clojure.core/spit f (db/serialize @db)))
+
+(defn db-with [connection datoms]
+  (swap! connection
+         (fn [db] (reduce (fn [db datom] (db/insert db datom)) db datoms))))

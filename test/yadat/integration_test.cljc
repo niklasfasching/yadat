@@ -1,160 +1,63 @@
 (ns yadat.integration-test
-  (:require  [clojure.test :refer :all]
-             [datascript.core :as datascript]
-             [yadat.test-helper :as test-helper]
-             [yadat.query :as datalog]
-             [yadat.db :as db]
-             [yadat.db.minimal]
-             [yadat.db.sorted-set]))
+  (:require [clojure.test :refer :all]
+            [datascript.core :as datascript]
+            [yadat.core :as yadat]
+            [datomic.api :as datomic]))
+
+(def results (atom []))
+
+(def schema {})
+(def datomic-db (do
+                  (datomic/create-database "datomic:mem://temp")
+                  (let [connection (datomic/connect "datomic:mem://temp")]
+                    (datomic/transact connection schema)
+                    (datomic/db connection))))
+(def datascript-db @(datascript/create-conn schema))
+(def yadat-db @(yadat/open :sorted-set schema))
 
 
+;; also need to insert the rows into the dbs. so setup fns would make sense after all
 
-(deftest failing-test
-  (testing "and (TODO missing ?name)"
-    (let [db (test-helper/recipe-db)
-          clause (parser/where-clause '(and [?id :food/name "Banana"]
-                                            [?id :food/category "Fruit"]
-                                            [?id :food/name ?name]))
-          [relation] (query/resolve-clause clause db [])]
-      (is (= (:columns relation) '#{?id ?name}))
-      (is (= (:rows relation) '#{{?id 100 ?name "Banana"}})))))
+(defmacro timed [& body]
+  `(do
+     (prn "Running" '~@body)
+     (let [start# (. System (nanoTime))
+           result# (do ~@body)
+           time# (/ (double (- (. System (nanoTime)) start#)) 1000000.0)]
+       {:result result# :time time# })))
 
+;; collect results in global var and print when all tests finished
+(defn query-test [query-map]
+  (let [datomic-result (timed (datomic/q query-map datomic-db))
+        datascript-result (timed (datascript/q query-map datascript-db))
+        yadat-result (timed (yadat/q query-map yadat-db))
 
-(let [connection (datascript/create-conn test-helper/recipe-schema)
-      query '{:find [?recipe-name]
-              :where [[?recipe-id :recipe/name ?recipe-name]
-                      [?recipe-id :recipe/ingredients ?ingredient-id]
-                      [?ingredient-id :ingredient/food ?food-id]
-                      [?food-id :food/name "Bread"]]}]
-  (datascript/transact! connection test-helper/recipes)
-  (let [result (datascript/q query @connection)]))
+        yadat-passed? (is (= (sort (:result datomic-result))
+                             (sort (:result yadat-result))))
+        datascript-passed? (is (= (sort (:result datomic-result))
+                                  (sort (:result datascript-result))))
+        result {:datomic {:pass true
+                          :time (:time datomic-result)}
+                :datascript {:pass datascript-passed?
+                             :time (:time datascript-result)}
+                :yadat {:pass yadat-passed?
+                        :time (:time yadat-result)}}]
+    (clojure.pprint/pprint result)
+    (swap! results conj result)))
 
-(let [connection (datascript/create-conn test-helper/recipe-schema)
-      query '{:find [?food-name]
-              :where [[?recipe-id :recipe/name ?recipe-name]
-                      [?recipe-id :recipe/ingredients ?ingredient-id]
-                      [?ingredient-id :ingredient/food ?food-id]
-                      [?food-id :food/name ?food-name]
-                      [(= ?food-id 10)]]}]
-  (datascript/transact! connection test-helper/recipes)
-  (datascript/q query @connection))
+(deftest integration-test
+  (testing "John Lennon"
+    (query-test '{:find [?title ?album ?year]
+                  :where [[?a :artist/name   "John Lennon"]
+                          [?t :track/artists ?a]
+                          [?t :track/name    ?title]
+                          [?m :medium/tracks ?t]
+                          [?r :release/media ?m]
+                          [?r :release/name  ?album]
+                          [?r :release/year  ?year]]})))
 
-(let [connection (datascript/create-conn test-helper/recipe-schema)
-      query '{:find [[?food-id ?food-name]]
-              :where [[?recipe-id :recipe/name ?recipe-name]
-                      [?recipe-id :recipe/ingredients ?ingredient-id]
-                      [?ingredient-id :ingredient/food ?food-id]
-                      [?food-id :food/name ?food-name]]}]
-  (datascript/transact! connection test-helper/recipes)
-  (datascript/q query @connection))
-
-(let [connection (datascript/create-conn test-helper/recipe-schema)
-      query '{:find [[?food-id ?food-name]]
-              :where [[?food-id :food/name ?food-name]]}]
-  (datascript/transact! connection test-helper/recipes)
-  (datascript/q query @connection))
-
-
-
-(def schema {:major/id {:db/unique :db.unique/identity}
-             :major/sections {:db/type :db.type/ref
-                              ;; :db/isComponent true
-                              :db/cardinality :db.cardinality/many}
-             :section/modules {:db/type :db.type/ref
-                               :db/cardinality :db.cardinality/many}
-             :module/id {:db/unique :db.unique/identity}
-             :module/courses {:db/type :db.type/ref
-                              ;; :db/isComponent true
-                              :db/cardinality :db.cardinality/many}})
-
-(def query '{:find [?name]
-             :where [[?module-id :module/name ?module-name]
-                     [(re-find #"Entscheidung" ?module-name)]
-                     [?module-id :module/courses ?course-link-id]
-                     [?course-link-id :course-link/name ?name]]})
-
-(binding [*print-namespace-maps* false]
-  (spit "human-factors-major.edn" (with-out-str (clojure.pprint/pprint human-factors))))
-
-(def human-factors (read-string (slurp "human-factors.edn")))
-
-(def human-factors-2 (read-string (slurp "human-factors.edn")))
-
-;; right now ~ 1.5 slower (470 datascript, 620 me)
-;; datalog 140% of datascript runtime
-
-(time (dotimes [i 20]
-        (let [db (db/open :minimal schema)
-              [transaction eids] (db/transact db [human-factors])]
-          (datalog/q (:db transaction) query))))
-
-
-(let [connection (datascript/create-conn schema)]
-  (datascript/transact! connection [human-factors])
-  (time (dotimes [i 20] (datascript/q query @connection))))
-
-(time (dotimes [i 20]
-        (let [connection (datascript/create-conn schema)]
-          (datascript/transact! connection [human-factors])
-          (datascript/q query @connection))))
-
-;; the querying is like ... 5 times slower lol
-;; 1900
-(let [db (db/open :sorted-set schema)
-      [{:keys [db]} eids] (time (db/transact db [human-factors]))]
-  (time (dotimes [i 1000]
-          (datalog/q db query))))
-
-(let [db (db/open :minimal schema)
-      [{:keys [db]} eids] (time (db/transact db [human-factors]))]
-  (datalog/q db '{:find [?name]
-                  :where [[?module-id :module/name ?module-name]
-                          [?course-link-id :course-link/name ?name]]})
-  (datalog/q db '{:find [?name]
-                  :where [[?module-id :module/name ?name]]}))
-
-;; 400
-q(let [connection (datascript/create-conn schema)]
-  (time (datascript/transact! connection [human-factors]))
-  (datascript/q '{:find [(pull ?module-id [*])]
-                  :where [[?module-id :module/name ?module-name]
-                          [(re-find #"Entscheidung" ?module-name)]
-                          [?module-id :module/courses ?course-link-id]
-                          [?course-link-id :course-link/name ?name]]}
-                @connection))
-
-
-(let [connection (datascript/create-conn test-helper/recipe-schema)
-      query '{:find [(pull ?recipe-id [:recipe/name {:recipe/author [*]}]) .]
-              :where [[?recipe-id :recipe/name _]]}]
-  (datascript/transact! connection test-helper/recipes)
-  (datascript/q query @connection))
-
-(def simple-schema {:major/id [:unique-identity]
-                    :major/sections [:reference :many]
-                    :section/modules [:reference :many]
-                    :module/id [:unique-identity]
-                    :module/courses [:reference :many]})
-
-(time (let [db (db/open :minimal simple-schema)
-            [transaction] (db/transact db [human-factors])
-            db (:db transaction)]
-        (time (datalog/q db query))))
-
-(time (let [db (db/open :sorted-set schema)
-            [transaction] (db/transact db [human-factors])
-            db (:db transaction)]
-        (time (datalog/q db query))))
-
-(time (let [connection (datascript/create-conn schema)]
-        (datascript/transact! connection [human-factors])
-        (time (datascript/q query @connection))))
-
-(let [db (db/open :sorted-set schema)
-      [transaction] (db/transact db [human-factors])
-      db (:db transaction)]
-  (first (datalog/q db '{:find [(pull ?module-id [*])]
-                         :where [[?module-id :module/name ?module-name]
-                                 [(re-find #".*" ?module-name)]
-                                 [?module-id :module/courses ?course-link-id]
-                                 [?course-link-id :course-link/name ?name]]})))
+;; running tests (timeout: 60s)
+;; | datomic | datascript | yadat    |
+;; | / (10s) | / (10s)    | / (20 s) |
+;; | / (10s) | / (10s)    | X (20 s) |
+;; | / (10s) | / (10s)    | X (60 s) |

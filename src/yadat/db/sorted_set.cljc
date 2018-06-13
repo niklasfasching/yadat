@@ -77,7 +77,8 @@
       e (select-datoms eav [e nil nil])
       (some? v) (->> (select-datoms eav [nil nil nil])
                      (filter #(= v (get % 2))))
-      :else (throw (ex-info "Invalid select" {:datom datom}))))
+      ;; not throw?
+      :else (select-datoms eav [nil nil nil])))
 
   (serialize [this]
     (binding [*print-length* nil

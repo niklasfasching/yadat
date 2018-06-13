@@ -82,6 +82,8 @@
 
 
 (map #(.getName %) (.getInterfaces datomic.datalog.PredRel))
+(map #(.getName %) (.getInterfaces datomic.db.Datum))
+(map #(.getName %) (.getMethods datomic.Datom))
 (clojure.pprint/pprint (.getMethods clojure.lang.IType))
 
 (query/pattern? '[(?a b) b])
@@ -99,8 +101,16 @@
 (datomic/db connection) -> retrieve db from connection
 (datomic/transact) -> retrieve db from connection
 
-(def uri "datomic:mem://tmp")
 
+(datomic/create-database "datomic:mem://tmp")
+(def datomic-connection (datomic/connect "datomic:mem://tmp"))
+(def datomic-db (datomic/db datomic-connection))
+(datomic/transact)
+(datomic/with datomic-db (map #(do (concat [:db/add] %)) datoms))
+
+(map #(do (concat [:db/add] %)) datoms)
+
+(def uri "datomic:mem://tmp")
 
 (def uri "datomic:free://localhost:4334/mbrainz-1968-1973")
 (def conn (datomic/connect uri))
@@ -147,8 +157,61 @@
 
 (count (take 1000000000 (datomic/datoms db :eavt))) ;; ~847000
 ;; reduce size of set and use that as test data?
+(select-keys (first (datomic/datoms db :eavt)) [:e :a :v])
 
-(type (first (datomic/datoms db :eavt)))
+
+
+(def attributes (->> (datomic/datoms db :eavt)
+                     (map :a)
+                     distinct
+                     (map #(do [% (:db/ident (datomic/entity db %))]))
+                     (remove #(clojure.string/starts-with? (str (second %)) ":db"))
+                     (into {})))
+
+(defn ->yadat-datom [datum]
+  (when-let [a (get attributes (:a datum))]
+    [(:e datum) a (:v datum)]))
+
+(binding [*print-length* nil]
+  (spit "mbrainz-datoms.edn" (pr-str (remove nil? (map ->yadat-datom (datomic/datoms db :eavt))))))
+
+(def datoms (clojure.edn/read-string (slurp "mbrainz-datoms.edn")))
+
+(require '[yadat.core :as yadat])
+
+(def yadat-connection (yadat/open :sorted-set {}))
+
+(yadat/db-with yadat-connection datoms)
+
+(time (yadat/query yadat-connection
+                   '{:find [[?a ...]]
+                     :where [[_ ?a _]]}))
+(def yadat-results (time (yadat/query yadat-connection
+                                      '{:find [?title ?album ?year]
+                                        :where [[?a :artist/name   "John Lennon"]
+                                                [?t :track/artists ?a]
+                                                [?t :track/name    ?title]
+                                                [?m :medium/tracks ?t]
+                                                [?r :release/media ?m]
+                                                [?r :release/name  ?album]
+                                                [?r :release/year  ?year]]})))
+
+(def datomic-results (time (datomic/q '{:find [?title ?album ?year]
+                                        :where [[?a :artist/name   "John Lennon"]
+                                                [?t :track/artists ?a]
+                                                [?t :track/name    ?title]
+                                                [?m :medium/tracks ?t]
+                                                [?r :release/media ?m]
+                                                [?r :release/name  ?album]
+                                                [?r :release/year  ?year]]} db)))
+
+(= (sort yadat-results) (sort datomic-results)) ;; => true... 500ms vs 10s though lol
+
+;; now also datascript
+
+;; it works but takes like 10 seconds
+
+;; so...
 
 (doc datomic.db.Datum)
 (datomic.db/->Datum )
