@@ -1,61 +1,7 @@
-* dataset
-https://www.ars.usda.gov/northeast-area/beltsville-md-bhnrc/beltsville-human-nutrition-research-center/nutrient-data-laboratory/docs/sr28-download-files/
-
-* testing
-there's a lot of example queries
--> need to figure out what features i actually want to test and then test those against the datomic result for integration
--> also datascript (just for perf)
-
-- need to get test data
-- using something similiar to the mbrainz dataset sounds like a good idea
-- easiest would be using mbrainz but
-  large (30-50mb)
-  import into datomic/yadat not easy in memory (w/o docker)
-  -> could create it myself using datomic etl job for it - but that won't persist between builds in travis
-  -> slow and not being a good citizen
-
-- so... a subset of mbrainz would be awesome...
-- get 2-3 artists will everything related? if i could change the schema to treat related as components that should be easy
-
--> not that easy as pulling still keeps the datomic relation shit, i.e. track/artists refernces artist
-
--> country artist release medium track?
--> idk... what about lsf data?
-
-
-use lein junit? pretty test results in CI
-later...
-
-
-* how use
-generic rss, i.e. rss OR scrape rule
--> feed of updates of interest
--> this generalizes the wg-gesucht scraper & rss feed and stuff
--> hooks to act on new feed items, e.g. send telegram message, reply to ad, ...
-* next
-- stabilize external api first - HOLD features
-- write tests - match datascript
-* demo
-web editor for datalog query, update results
-http://blog.teamtreehouse.com/building-a-syntax-highlighted-input-box-with-javascript
-https://microsoft.github.io/monaco-editor/index.html
-* in
-$... src-var is a db
-% rules-var
-?var is a var
-pattern-var is a symbol
-
-;; in = [binding value]
-;; in = [ (src-var | rules-var | plain-symbol | binding)+ ]
-;; (resolve-ins (:qin parsed-q) inputs) -> context
-;; group rules by ffirst, i.e. by their name
-
-;; $var database
-;; ?var scalar
-;; same as spec type - scalar, tuple, collection, relation - but look different
-
-;; i think extending to collections is all i need for :in
 * ToDo
+- integration test
+  http://api.nobelprize.org/v1/prize.json
+  http://api.nobelprize.org/v1/laureate.json
 - implement rules
   or-clause ~ invocation of anonymous rule whose predicates make up clause
 - extensibility - e.g. fulltext search on top of set, sorted-set?
@@ -101,7 +47,24 @@ pattern-var is a symbol
   - magic set transformation
 - db.fn
 - multiple / customizable sources (databases)
-* rewriting query to use a parser
+* in
+$... src-var is a db
+% rules-var
+?var is a var
+pattern-var is a symbol
+
+;; in = [binding value]
+;; in = [ (src-var | rules-var | plain-symbol | binding)+ ]
+;; (resolve-ins (:qin parsed-q) inputs) -> context
+;; group rules by ffirst, i.e. by their name
+
+;; $var database
+;; ?var scalar
+;; same as spec type - scalar, tuple, collection, relation - but look different
+
+;; i think extending to collections is all i need for :in
+* blog post
+** rewriting query to use a parser
 while trying to add :with i realized that i had not been removing unused variables from the result rows
 this meant the medusa head problem was working without with even though it shouldn't - rows were not collapsed as
 they did not merely contain the :heads but also :name - which should have been removed not being part of the find
@@ -121,7 +84,7 @@ gets us all the way as far as i can see :)
 make it work first - later make it pretty with a parser
 learn some more first i guess
 
-** parsing
+*** parsing
 - use clojure spec conform as parser :o???
   #+BEGIN_SRC clojure
   (s/def ::config (s/*
@@ -133,7 +96,19 @@ learn some more first i guess
   ;;    {:prop "-user", :val [:s "joe"]}]
   #+END_SRC
 -> not that pretty as conform does not leave much freedom regarding actual transforming
+** demo
+web editor for datalog query, update results
+http://blog.teamtreehouse.com/building-a-syntax-highlighted-input-box-with-javascript
+https://microsoft.github.io/monaco-editor/index.html
+** how use
+generic rss, i.e. rss OR scrape rule
+-> feed of updates of interest
+-> this generalizes the wg-gesucht scraper & rss feed and stuff
+-> hooks to act on new feed items, e.g. send telegram message, reply to ad, ...
 * limitations
+- no fixed schema and no valueTypes. everything is dynamic. values are added as simple value, cardinality-1 by default
+  only attributes for which something else should be done need to be defined in the schema
+- no schema migrations
 - sorted-set does not support non-comparable, non-reference many values
   same for datascript though
 - cljs does not have real resolve ([[https://stackoverflow.com/questions/12020576/resolve-function-throws-an-error-in-clojurescript-but-not-clojure/12020663#12020663][stackoverflow q]]) - what do
@@ -147,38 +122,7 @@ learn some more first i guess
   have more than 3 (5 with tx & remove/add) fields, which is manageable and
   better reflects how datalog is used to match on datoms
   -> symmetry with datalog
-* optimization & rewriting
-on query optimization in datomic (hint: not done)
-https://groups.google.com/forum/#!msg/datomic/t7qKyVUqqqM/kPz4KSVqXuIJ
-https://groups.google.com/forum/#!msg/datomic/6VkADvLx-QU/ZLN9062Is6kJ
-
-many attributes must be in array! no guessing about entity id or not
-https://groups.google.com/forum/#!topic/datomic/HNrSp-RVK3w
-
-- something about subseq being fucking slow https://dev.clojure.org/jira/browse/CLJ-1008
-- async datascript does not bode well with react (?) https://github.com/tonsky/datascript/issues/22
-- other set implementation? datascript switched to b+ tree and got 3x
-  -> https://github.com/clojure/data.avl?
-
-* Explanation - defn docs that i'm still refining
-inner-join relations with shared variables: This reflects narrowing down the result set in bottom up evaluation.
-datalog query consists of where and find
-each where clause is resolved against the database
-where clauses that share variables are inner joined on those (unification) - this
-allows us to express complex query requirements
-the resulting, independent, relations are then cross joined (independent means the bindings can not be joined on some
-shared variable. the only sensible thing to do is to join each binding of relation A with each binding of relation B)
-
-the resulting relation contains all the variable bindings we need to answer the :find of the query
-#{{?var1 1 ?var2 2}
-  {?var1 3 ?var2 4}}
-
-We're not wroking on datoms (raw facts from the store) anymore but already on extracted data.
-this is required to allow using variables at different positions, i.e. first as the value, then as the id to link parent and child
-
-
-i want some documentation on what datalog actually is, what we do
-* querying
+** querying
 Each pattern creates a set that binds the variables of that pattern
 when a pattern shares variable names with another pattern, the sets are inner-joined on those variables
 #+BEGIN_SRC clojure
@@ -201,107 +145,37 @@ If there’s some aggregation happening, do group-by and run aggregation functio
 If pull() is used, call Pull API for each entity
 
 If find specifications are used, do post-processing: unwrap inner tuples, take first element from a set, etc.
+** Explanation - defn docs that i'm still refining
+inner-join relations with shared variables: This reflects narrowing down the result set in bottom up evaluation.
+datalog query consists of where and find
+each where clause is resolved against the database
+where clauses that share variables are inner joined on those (unification) - this
+allows us to express complex query requirements
+the resulting, independent, relations are then cross joined (independent means the bindings can not be joined on some
+shared variable. the only sensible thing to do is to join each binding of relation A with each binding of relation B)
 
-* reading & unsorted notes
-https://github.com/djjolicoeur/datamaps/blob/master/src/datamaps/pull.clj
-http://users.informatik.uni-halle.de/~brass/lp07/c7_magic.pdf
-on the magic set transformation https://souffle-lang.org/docs/magicset/
-https://semmle.com/download-files/sigmod08.pdf
-https://www.cs.cmu.edu/~fp/courses/15317-f17/lectures/18-datalog.pdf
-https://iccl.inf.tu-dresden.de/w/images/c/cc/DBT2016-Lecture-12.pdf
-datalog lectures http://pages.cs.wisc.edu/~paris/cs784-s17/lectures/lecture7.pdf (also 8.pdf & 9.pdf)
+the resulting relation contains all the variable bindings we need to answer the :find of the query
+#{{?var1 1 ?var2 2}
+  {?var1 3 ?var2 4}}
 
-https://github.com/travitch/datalog/blob/master/src/Database/Datalog/MagicSets.hs
-http://webdam.inria.fr/Alice/pdfs/Chapter-13.pdf
-http://www.ifis.cs.tu-bs.de/webfm_send/176 -> good
-
-http://www.cs.toronto.edu/~drosu/csc343-l7-handout6.pdf -> REALLY GOOD
-A rule is safe if each distinguished and nondistinguished variable appears in at least one nonnegated relational atom
-unsafe
-E(w) ← NOT Movies(t, y, l, c, s, p)
-Years(w) ← Movies(t, y, l, c, s, p) AND w < y
-in each case an infinity of w’s can satisfy the
-rule, even though Movies is a finite relation.
-
-datalog program is recursive if dependency graph has a cycle!
-
-naive solution for recursive (without negated)
-fixpoint search, i.e. eval rules on edb and idb until no change to idb
-negation and recursion makes no sense (?)
-
-stratified recursion: forbid negation in recursion: max negations to idb must be finite
--> labeled dependency graph
-  - nodes: idb predicates
-  - edges:  from node1(predicate1) to node(predicate2) if
-and only if there is a rule with predicate1 in the head and
-predicate2 in the body. If predicate2 appears negated,
-label the edge with “-”.
-
-• The stratum of a node (predicate) is the
-maximum number of “-” labeled edges on
-a path leading from that node
- A Datalog program is stratified if al its IDB
-predicates have finite strata.
-
-next: this http://infolab.stanford.edu/~ullman/fcdb/slides/slides14.pdf
-
-https://www.kde.cs.uni-kassel.de/lehre/ss2006/datenbanken/folien/Kapitel15.pdf <- do this! very good
-edb: extensional db (facts, relational data basis)
-deduktionskomponente: menge aus herleitungsregeln
-idb: intensional db (hergeleitete relationen, ausprägungen). result of application of rules to facts
+We're not wroking on datoms (raw facts from the store) anymore but already on extracted data.
+this is required to allow using variables at different positions, i.e. first as the value, then as the id to link parent and child
 
 
-edb facts, idb rules (?)
+i want some documentation on what datalog actually is, what we do
+* optimization & rewriting
+on query optimization in datomic (hint: not done)
+https://groups.google.com/forum/#!msg/datomic/t7qKyVUqqqM/kPz4KSVqXuIJ
+https://groups.google.com/forum/#!msg/datomic/6VkADvLx-QU/ZLN9062Is6kJ
 
-regel formel: q(A1,...An), q being name of base relation, intensional relation or built in predicate
+many attributes must be in array! no guessing about entity id or not
+https://groups.google.com/forum/#!topic/datomic/HNrSp-RVK3w
 
-adorn = annotate bound / free
-magic set contains all possibly interesting constant values
-recursively calc using magic rules
+- something about subseq being fucking slow https://dev.clojure.org/jira/browse/CLJ-1008
+- async datascript does not bode well with react (?) https://github.com/tonsky/datascript/issues/22
+- other set implementation? datascript switched to b+ tree and got 3x
+  -> https://github.com/clojure/data.avl?
 
-
-reachable adorned system: i.e. incorporate the query as rule and
-replace all predicate by it’s respective adornment
-
-we obtain multiple magic predicates for a
-single adorned predicate occurrence
-
-Every rule using an adorned IDB predicate in its body is augmented with an additional literal containing the respective magic set
-
-magic set:
-- query is part of program
-- reachable adorned system:  which terms are distinguished and propagate the resulting adornments. Reachable adorned system contains separated adorned predicate occurrences
-- magic set for each adorned predicate occurrence
-
-
-i should try first to use datascripts existing query engine
--> use that in tests for validation
--> build my own with that and the datomic docs
-
-for starters i should focus on where
-- :find is only post-processing of results
-- :in is advanced customization
-- :with as well
-
-- :where
-  #+BEGIN_SRC clojure
-  :where [[?e :user/firstName ?fname]
-          [?e :user/secondName ?sname]]
-  #+END_SRC
-needs
-- query plan for each clause
-  query plan is based on what is variable and what is constant
-
-- join plan for all clauses based on shared variables
-- that's it
-
-rule is safe (i.e. result is not infinite) when all variables in head are finite
-- variable must be in body inside at least one non built in predicate (i.e. one real relation. function predicates are infinite)
-- variable is assigned a constant or another finite set
-
-
-
-evaluation is expanding
 * notes
 ** https://www.cse.buffalo.edu/~chomicki/636/handout-datalog.pdf
 Closed World Assumption: what is not implied by the logic program is false (rather than unknown)
@@ -528,6 +402,107 @@ The goal of the original Magic Set method (defined for non-disjunctive Datalog p
 of constants in a query for restricting the possible search space by considering only a subset of a hypothetical program
 instantiation that is sufficient to answer the query in question. In order to do this, a top–down computation for answering
 the query is simulated in an abstract way.
+
+** reading & unsorted notes
+https://github.com/djjolicoeur/datamaps/blob/master/src/datamaps/pull.clj
+http://users.informatik.uni-halle.de/~brass/lp07/c7_magic.pdf
+on the magic set transformation https://souffle-lang.org/docs/magicset/
+https://semmle.com/download-files/sigmod08.pdf
+https://www.cs.cmu.edu/~fp/courses/15317-f17/lectures/18-datalog.pdf
+https://iccl.inf.tu-dresden.de/w/images/c/cc/DBT2016-Lecture-12.pdf
+datalog lectures http://pages.cs.wisc.edu/~paris/cs784-s17/lectures/lecture7.pdf (also 8.pdf & 9.pdf)
+
+https://github.com/travitch/datalog/blob/master/src/Database/Datalog/MagicSets.hs
+http://webdam.inria.fr/Alice/pdfs/Chapter-13.pdf
+http://www.ifis.cs.tu-bs.de/webfm_send/176 -> good
+
+http://www.cs.toronto.edu/~drosu/csc343-l7-handout6.pdf -> REALLY GOOD
+A rule is safe if each distinguished and nondistinguished variable appears in at least one nonnegated relational atom
+unsafe
+E(w) ← NOT Movies(t, y, l, c, s, p)
+Years(w) ← Movies(t, y, l, c, s, p) AND w < y
+in each case an infinity of w’s can satisfy the
+rule, even though Movies is a finite relation.
+
+datalog program is recursive if dependency graph has a cycle!
+
+naive solution for recursive (without negated)
+fixpoint search, i.e. eval rules on edb and idb until no change to idb
+negation and recursion makes no sense (?)
+
+stratified recursion: forbid negation in recursion: max negations to idb must be finite
+-> labeled dependency graph
+  - nodes: idb predicates
+  - edges:  from node1(predicate1) to node(predicate2) if
+and only if there is a rule with predicate1 in the head and
+predicate2 in the body. If predicate2 appears negated,
+label the edge with “-”.
+
+• The stratum of a node (predicate) is the
+maximum number of “-” labeled edges on
+a path leading from that node
+ A Datalog program is stratified if al its IDB
+predicates have finite strata.
+
+next: this http://infolab.stanford.edu/~ullman/fcdb/slides/slides14.pdf
+
+https://www.kde.cs.uni-kassel.de/lehre/ss2006/datenbanken/folien/Kapitel15.pdf <- do this! very good
+edb: extensional db (facts, relational data basis)
+deduktionskomponente: menge aus herleitungsregeln
+idb: intensional db (hergeleitete relationen, ausprägungen). result of application of rules to facts
+
+
+edb facts, idb rules (?)
+
+regel formel: q(A1,...An), q being name of base relation, intensional relation or built in predicate
+
+adorn = annotate bound / free
+magic set contains all possibly interesting constant values
+recursively calc using magic rules
+
+
+reachable adorned system: i.e. incorporate the query as rule and
+replace all predicate by it’s respective adornment
+
+we obtain multiple magic predicates for a
+single adorned predicate occurrence
+
+Every rule using an adorned IDB predicate in its body is augmented with an additional literal containing the respective magic set
+
+magic set:
+- query is part of program
+- reachable adorned system:  which terms are distinguished and propagate the resulting adornments. Reachable adorned system contains separated adorned predicate occurrences
+- magic set for each adorned predicate occurrence
+
+
+i should try first to use datascripts existing query engine
+-> use that in tests for validation
+-> build my own with that and the datomic docs
+
+for starters i should focus on where
+- :find is only post-processing of results
+- :in is advanced customization
+- :with as well
+
+- :where
+  #+BEGIN_SRC clojure
+  :where [[?e :user/firstName ?fname]
+          [?e :user/secondName ?sname]]
+  #+END_SRC
+needs
+- query plan for each clause
+  query plan is based on what is variable and what is constant
+
+- join plan for all clauses based on shared variables
+- that's it
+
+rule is safe (i.e. result is not infinite) when all variables in head are finite
+- variable must be in body inside at least one non built in predicate (i.e. one real relation. function predicates are infinite)
+- variable is assigned a constant or another finite set
+
+
+
+evaluation is expanding
 * Resources
 - https://dev.clojure.org/display/design/Macro+Grammars
   parsing macro grammars (~ parsing the datalog dsl forms)

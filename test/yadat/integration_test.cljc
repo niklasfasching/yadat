@@ -5,17 +5,25 @@
             [yadat.integration-test-schema :as schema]
             [datomic.api :as datomic]))
 
-
 ;; https://github.com/Datomic/mbrainz-importer
 ;; this one makes more sense. rather than keeping a dump in git
 ;; rather create it ...
 ;; so much work :(
 
+
+(defn scratch-conn
+  "Create a connection to an anonymous, in-memory database."
+  []
+  (let [uri (str db-uri-base (d/squuid))]
+    (d/delete-database uri)
+    (d/create-database uri)
+    (d/connect uri)))
+
+
 (def results (atom []))
 
 (def datoms (clojure.edn/read-string (slurp "mbrainz-datomic-datoms.edn")))
 
-(first datoms)
 (let [uri (str "datomic:mem://" (gensym))]
   (datomic/create-database uri)
   (let [connection (datomic/connect uri)]
@@ -28,17 +36,6 @@
                  (datomic/db connection))
     ))
 
-
-
-;; mh - how do i get it back into datomic lol
-;; i guess the easiest would be to dump all datoms and then add them back?
-
-
-
-
-
-
-
 (defn edn-dump []
   "dump all entities in given namespace nspace"
   (d/q '[:find  [(pull ?e [*]) ...]
@@ -47,15 +44,9 @@
          [?aid :db/ident ?a]]
        db))
 
-
-
-
-
 (def datomic-db nil)
 (def datascript-db @(datascript/create-conn schema))
 (def yadat-db @(yadat/open :sorted-set schema))
-
-
 
 ;; maybe i can already use the musicbrainz one - just need to get yadat fast enough lol
 ;; let's see how fast datascript is
@@ -126,6 +117,7 @@
 ;; a matching dataset!
 
 
+;; test in
 
 {:find [?title]
  :in [$ ?artist-name]
