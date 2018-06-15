@@ -1,4 +1,4 @@
-(ns yadat.api-test
+(ns yadat.core-test
   (:require [yadat.core :as core]
             [clojure.test :refer :all]
             [yadat.test-helper :as test-helper]

@@ -1,4 +1,5 @@
 * ToDo
+- make tests cljs compatible
 - integration test
   http://api.nobelprize.org/v1/prize.json
   http://api.nobelprize.org/v1/laureate.json

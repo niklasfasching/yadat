@@ -44,7 +44,7 @@
         :many (= :db.cardinality/many (:db/cardinality (a schema)))
         :unique-identity (= :db.unique/identity (:db/unique (a schema)))
         :unique-value (= :db.unique/value (:db/unique (a schema)))
-        :reference (= :db.type/ref (:db/type (a schema)))
+        :reference (= :db.type/ref (:db/valueType (a schema)))
         :component (:db/isComponent (a schema))
         (throw (ex-info "Invalid value" {:a raw-a :x x})))))
 

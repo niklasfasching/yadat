@@ -1,57 +1,130 @@
 (ns yadat.test-helper
-  (:require  [clojure.test :as t]
-             [yadat.db :as db]
-             [yadat.db.minimal]))
+  (:require [clojure.edn :as edn]
+            [datascript.core :as datascript]
+            [datomic.api :as datomic]
+            [yadat.core :as yadat]))
 
-(def recipe-schema {:recipe/author [:reference]
-                    :recipe/ingredients [:reference :many]
-                    :ingredient/food [:reference]
-                    :food/name [:unique-identity]})
+(def laureates (edn/read-string (slurp "resources/nobel-prize-laureates.edn")))
 
-(def recipes [{:recipe/name "Spaghetti with tomato sauce"
-               :recipe/author {:db/id 10
-                               :author/name "Adam"
-                               :author/gender "M"}
-               :recipe/ingredients [{:ingredient/food {:food/name "Spaghetti"
-                                                       :food/category "Noodles"}
-                                     :ingredient/quantity 1
-                                     :ingredient/unit "package"}
-                                    {:ingredient/food {:food/name "Tomato Sauce"
-                                                       :food/category "Sauce"}
-                                     :ingredient/quantity 2
-                                     :ingredient/unit "package"}]}
-              {:recipe/name "Bread with butter"
-               :recipe/author {:db/id 20
-                               :author/name "Eve"
-                               :author/gender "F"}
-               :recipe/ingredients [{:ingredient/food {:food/name "Bread"
-                                                       :food/category "Bread"}
-                                     :ingredient/quantity 1
-                                     :ingredient/unit "slice"}
-                                    {:ingredient/food {:food/name "Butter"
-                                                       :food/category "Fat"}
-                                     :ingredient/quantity 3
-                                     :ingredient/unit "scoops"}]}
-              {:db/id 42
-               :recipe/name "Banana bread sandwhich"
-               :recipe/author {:db/id 30
-                               :author/name "Theo"
-                               :author/gender "F"}
-               :recipe/ingredients [{:ingredient/food {:food/name "Bread"
-                                                       :food/category "Bread"}
-                                     :ingredient/quantity 2
-                                     :ingredient/unit "slice"}
-                                    {:ingredient/food {:db/id 100
-                                                       :food/name "Banana"
-                                                       :food/category "Fruit"}
-                                     :ingredient/quantity 1
-                                     :ingredient/unit "piece"}]}])
+(def laureate-schema-datascript
+  {:id {:db/unique :db.unique/value}
+   :prizes {:db/valueType :db.type/ref
+            :db/cardinality :db.cardinality/many
+            :db/isComponent true}
+   :affiliations {:db/valueType :db.type/ref
+                  :db/cardinality :db.cardinality/many
+                  :db/isComponent true}})
 
-(defn recipe-db []
-  (let [db (db/open :minimal recipe-schema)
-        [transaction eids] (db/transact db recipes)]
-    (:db transaction)))
+(def laureate-schema-datomic
+  [{:db/ident :id
+    :db/unique :db.unique/value
+    :db/valueType :db.type/string
+    :db/cardinality :db.cardinality/one}
+   {:db/ident :firstname
+    :db/valueType :db.type/string
+    :db/cardinality :db.cardinality/one}
+   {:db/ident :surname
+    :db/valueType :db.type/string
+    :db/cardinality :db.cardinality/one}
+   {:db/ident :born
+    :db/valueType :db.type/string
+    :db/cardinality :db.cardinality/one}
+   {:db/ident :bornCountry
+    :db/valueType :db.type/string
+    :db/cardinality :db.cardinality/one}
+   {:db/ident :bornCountryCode
+    :db/valueType :db.type/string
+    :db/cardinality :db.cardinality/one}
+   {:db/ident :bornCity
+    :db/valueType :db.type/string
+    :db/cardinality :db.cardinality/one}
+   {:db/ident :gender
+    :db/valueType :db.type/string
+    :db/cardinality :db.cardinality/one}
+   {:db/ident :died
+    :db/valueType :db.type/string
+    :db/cardinality :db.cardinality/one}
+   {:db/ident :diedCountry
+    :db/valueType :db.type/string
+    :db/cardinality :db.cardinality/one}
+   {:db/ident :diedCountryCode
+    :db/valueType :db.type/string
+    :db/cardinality :db.cardinality/one}
+   {:db/ident :diedCity
+    :db/valueType :db.type/string
+    :db/cardinality :db.cardinality/one}
+   {:db/ident :prizes
+    :db/valueType :db.type/ref
+    :db/cardinality :db.cardinality/many
+    :db/isComponent true}
 
-(defn db-of [schema datoms]
-  (let [db (db/open :minimal schema)]
-    (reduce db/insert db datoms)))
+   {:db/ident :year
+    :db/valueType :db.type/string
+    :db/cardinality :db.cardinality/one}
+   {:db/ident :category
+    :db/valueType :db.type/string
+    :db/cardinality :db.cardinality/one}
+   {:db/ident :share
+    :db/valueType :db.type/string
+    :db/cardinality :db.cardinality/one}
+   {:db/ident :motivation
+    :db/valueType :db.type/string
+    :db/cardinality :db.cardinality/one}
+   {:db/ident :affiliations
+    :db/valueType :db.type/ref
+    :db/cardinality :db.cardinality/many
+    :db/isComponent true}
+
+   {:db/ident :name
+    :db/valueType :db.type/string
+    :db/cardinality :db.cardinality/one}
+   {:db/ident :city
+    :db/valueType :db.type/string
+    :db/cardinality :db.cardinality/one}
+   {:db/ident :country
+    :db/valueType :db.type/string
+    :db/cardinality :db.cardinality/one}])
+
+(def datomic-db
+  (let [uri (str "datomic:mem://" (gensym))]
+    (datomic/create-database uri)
+    (let [connection (datomic/connect uri)]
+      @(datomic/transact connection laureate-schema-datomic)
+      @(datomic/transact connection (take 3 laureates))
+      (datomic/db connection))))
+
+(def datascript-db
+  (let [connection (datascript/create-conn laureate-schema-datascript)]
+    (datascript/transact connection laureates)
+    @connection))
+
+(def yadat-db
+  (let [connection (yadat/open :sorted-set laureate-schema-datascript)]
+    (yadat/insert connection laureates)
+    @connection))
+
+(defmacro timed [& body]
+  `(do
+     (prn "Running" '~@body)
+     (let [start# (. System (nanoTime))
+           result# (do ~@body)
+           time# (/ (double (- (. System (nanoTime)) start#)) 1000000.0)]
+       {:result result# :time time# })))
+
+(defn query-test [query-map]
+  (let [datomic-result (timed (datomic/q query-map datomic-db))
+        datascript-result (timed (datascript/q query-map datascript-db))
+        yadat-result (timed (yadat/q query-map yadat-db))
+
+        yadat-passed? (is (= (sort (:result datomic-result))
+                             (sort (:result yadat-result))))
+        datascript-passed? (is (= (sort (:result datomic-result))
+                                  (sort (:result datascript-result))))
+        result {:datomic {:pass true
+                          :time (:time datomic-result)}
+                :datascript {:pass datascript-passed?
+                             :time (:time datascript-result)}
+                :yadat {:pass yadat-passed?
+                        :time (:time yadat-result)}}]
+    (clojure.pprint/pprint result)
+    (swap! results conj result)))

@@ -1,24 +1,9 @@
 (ns yadat.integration-test
-  (:require [clojure.test :refer :all]
-            [datascript.core :as datascript]
+  (:require #?(:clj [clojure.test :refer [deftest testing is]]
+               :cljs [cljs.test :refer-macros [deftest testing is]])
             [yadat.core :as yadat]
             [yadat.integration-test-schema :as schema]
             [datomic.api :as datomic]))
-
-;; https://github.com/Datomic/mbrainz-importer
-;; this one makes more sense. rather than keeping a dump in git
-;; rather create it ...
-;; so much work :(
-
-
-(defn scratch-conn
-  "Create a connection to an anonymous, in-memory database."
-  []
-  (let [uri (str db-uri-base (d/squuid))]
-    (d/delete-database uri)
-    (d/create-database uri)
-    (d/connect uri)))
-
 
 (def results (atom []))
 

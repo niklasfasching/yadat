@@ -2,7 +2,8 @@
   :dependencies [[org.clojure/clojure "1.9.0"]
                  [org.clojure/clojurescript "1.10.238"]
                  [org.clojure/core.match "0.3.0-alpha5"]]
-  :profiles {:dev {:dependencies [[datascript "0.16.5"]
+  :profiles {:dev {:resource-paths ["src/test/resources"]
+                   :dependencies [[datascript "0.16.5"]
                                   [com.datomic/datomic-free "0.9.5697"]]}}
   :target-path "target/%s"
 
