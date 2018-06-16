@@ -10,15 +10,67 @@
             [clojure.string :as string]
             [yadat.test-helper :as th]))
 
+;; by making it data i can hopefully also generate js to test it against datascript
+;; does that actually work?
+;; if so go ahead
+;; think more about how to proceed before proceeding
+(def cases
+  [{:name "aggregate"
+    :query '{:find [?category (count ?id)]
+             :where [[?id :category ?category]]}}
+
+   {:name "custom aggregate"
+    :query '{:find [[(yadat.integration-test/sorted-interpose ?surname) ...]]
+             :where [[?id :firstname "Paul"]
+                     [?id :surname ?surname]]}}
+
+   ])
+
+(defmacro timed [& body]
+  `(do
+     (let [start# (. System (nanoTime))
+           result# (do ~@body)
+           time# (/ (double (- (. System (nanoTime)) start#)) 1000000.0)]
+       {:result result# :time time#})))
+
+(defn compare-results [r1 r2]
+  (if (and (coll? r1) (coll? r2))
+    (is (= (frequencies (:result r1))
+           (frequencies (:result r2))))
+    (is (= (:result r1) (:result r2)))))
+
+(defn query [query-map]
+  (let [datomic-result (timed (datomic/q query-map datomic-db))
+        datascript-result (timed (datascript/q query-map datascript-db))
+        yadat-result (timed (yadat/q query-map (atom yadat-db)))]
+    {:datomic (assoc datomic-result :pass true)
+     :datascript (assoc datascript-result :pass
+                        (compare-results datomic-result datascript-result))
+     :yadat (assoc yadat-result :pass
+                   (compare-results datomic-result datascript-result))}))
+
+(defn log [{:keys [datomic datascript yadat]}]
+  (clojure.pprint/print-table
+   [{:datomic (:time datomic)
+     :datascript (:time datascript)
+     :yadat (:time yadat)}]))
+
+(doseq [{:keys [name query] :as case} cases]
+
+  )
+
+;; multiple runs - first validate datascript against datomic
+;; then yadat against datomic
+;; ignore inconsistencies with datascript though - datomic is source of truth
+;; create perf table
 
 
-{}
 #_(clojure.test/use-fixtures :once
-  (fn [t]
-    (wrap (t))
-    (binding [*rows* (atom [])]
-      (t)
-      (clojure.pprint/print-table *rows*))))
+    (fn [t]
+      (wrap (t))
+      (binding [*rows* (atom [])]
+        (t)
+        (clojure.pprint/print-table *rows*))))
 
 (defn sorted-interpose
   "Custom aggregate. Sorting because order of xs is different between
@@ -220,7 +272,7 @@ nil
 (d/q '[:find ?celsius .
        :in ?fahrenheit
        :where [(- ?fahrenheit 32) ?f-32]
-              [(/ ?f-32 1.8) ?celsius]]
+       [(/ ?f-32 1.8) ?celsius]]
      212)
 
 
@@ -236,7 +288,7 @@ nil
 
 
 (d/q '[:find [(min ?dur) (max ?dur)]
-        :where [_ :track/duration ?dur]]
+       :where [_ :track/duration ?dur]]
      db)
 
 (d/q '[:find [(count ?name) (count-distinct ?name)]
@@ -257,7 +309,7 @@ nil
    (d/q '[:find [?name ...]
           :in $ ?artist
           :where [?release :release/name ?name]
-                 [?release :release/artists ?artist]]
+          [?release :release/artists ?artist]]
         db
         mccartney)))
 
@@ -268,7 +320,7 @@ nil
    (d/q '[:find [?name ...]
           :in $ ?artist
           :where [?release :release/artists ?artist]
-                 [?release :release/name ?name]]
+          [?release :release/name ?name]]
         db
         mccartney)))
 

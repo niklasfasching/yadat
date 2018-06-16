@@ -13,16 +13,15 @@ get-else https://stackoverflow.com/questions/21101259/find-entities-with-missing
 
 - implement rules
   or-clause ~ invocation of anonymous rule whose predicates make up clause
+- generative testing queries
+  this could also be a thing...
+
 - extensibility - e.g. fulltext search on top of set, sorted-set?
   a new db type until i decide on how extensibility should work
 - async?
   https://github.com/clojure/core.async/blob/master/examples/walkthrough.clj
   https://github.com/tonsky/datascript/issues/190
-  to allow async dbs (e.g. localstorage) where/resolve-clauses must return relations as promise
-  -> would require db interaction to be async which snowballs into resolve-clause & pull becoming async
-  it would probably be possible to provide a sync version by having sync dbs return results in fake promises and then just unwrap at the end
-  but idk... there must be a prettier way
-  cljs doesn't support promises so left with core.async
+  -> infectious. but semantics stay the same so rewrite once those are fixed
 - schema validation
   see https://docs.datomic.com/on-prem/schema.html - this also specifies transaction
   ensure isComponent is a reference
