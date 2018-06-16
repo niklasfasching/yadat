@@ -114,8 +114,7 @@
     :category "physics",
     :share "4",
     :motivation
-    "\"in recognition of the extraordinary services they have rendered by their joint researches on the radiation phenomena discovered by Professor Henri Becquerel\"",
-    :affiliations []}
+    "\"in recognition of the extraordinary services they have rendered by their joint researches on the radiation phenomena discovered by Professor Henri Becquerel\""}
    {:year "1911",
     :category "chemistry",
     :share "1",
@@ -17140,36 +17139,6 @@
   :bornCity "Detroit, MI",
   :born "1946-03-29",
   :gender "male"}
- {:id "897",
-  :born "0000-00-00",
-  :died "0000-00-00",
-  :gender "male",
-  :prizes [{:affiliations []}]}
- {:id "898",
-  :born "0000-00-00",
-  :died "0000-00-00",
-  :gender "male",
-  :prizes [{:affiliations []}]}
- {:id "899",
-  :born "0000-00-00",
-  :died "0000-00-00",
-  :gender "male",
-  :prizes [{:affiliations []}]}
- {:id "900",
-  :born "0000-00-00",
-  :died "0000-00-00",
-  :gender "male",
-  :prizes [{:affiliations []}]}
- {:id "901",
-  :born "0000-00-00",
-  :died "0000-00-00",
-  :gender "male",
-  :prizes [{:affiliations []}]}
- {:id "902",
-  :born "0000-00-00",
-  :died "0000-00-00",
-  :gender "male",
-  :prizes [{:affiliations []}]}
  {:prizes
   [{:year "2014",
     :category "medicine",

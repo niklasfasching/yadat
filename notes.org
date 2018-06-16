@@ -6,6 +6,11 @@ get-else https://stackoverflow.com/questions/21101259/find-entities-with-missing
 - integration test
   http://api.nobelprize.org/v1/prize.json
   http://api.nobelprize.org/v1/laureate.json
+
+  validation against datascript or against datomic?
+  problem with datomic is that sort order not always and stuff
+  -> frequencies
+
 - implement rules
   or-clause ~ invocation of anonymous rule whose predicates make up clause
 - extensibility - e.g. fulltext search on top of set, sorted-set?
