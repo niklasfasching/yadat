@@ -119,8 +119,11 @@
 
 ;; inputs cannot be parsed at query parse time, must be resolved to relations and shit at execution time
 (defn query [form]
-  (->Query
-   (find-spec (:find form))
-   (where-clauses (:where form))
-   nil
-   nil))
+  (let [query (->Query
+               (find-spec (:find form))
+               (where-clauses (:where form))
+               nil
+               nil)]
+    ;; validate vars in find exist in body
+
+    ))
