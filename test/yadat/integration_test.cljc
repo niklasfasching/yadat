@@ -2,79 +2,84 @@
   (:require #?(:clj [clojure.test :refer [deftest testing is]]
                :cljs [cljs.test :refer-macros [deftest testing is]])
             [yadat.core :as yadat]
-            [yadat.integration-test-schema :as schema]
-            [datomic.api :as datomic]))
+            [clojure.string :as string]
+            [yadat.test-helper :as th])
+  (:import (java.util Date)))
 
-(def results (atom []))
+(def connection (atom th/yadat-db))
 
-(def datoms (clojure.edn/read-string (slurp "mbrainz-datomic-datoms.edn")))
+;; maybe just compare against datascript?
+;; datomic would be nice but results seem too different - also much more setup
+;; idk
 
-(let [uri (str "datomic:mem://" (gensym))]
-  (datomic/create-database uri)
-  (let [connection (datomic/connect uri)]
-    @(datomic/transact connection schema/datomic-schema)
-    @(datomic/with (datomic/db connection) datoms)
-    #_(datomic/q '[:find  [?e ?a ?v]
-                   :where
-                   [?e ?aid ?v]
-                   [?aid :db/ident ?a]]
-                 (datomic/db connection))
-    ))
+;; aggregate
+(is (= (yadat/q '{:find [?category (count ?id)]
+                  :where [[?id :category ?category]]}
+                connection)
+       [["chemistry" 178]
+        ["peace" 131]
+        ["medicine" 214]
+        ["physics" 207]
+        ["economics" 79]
+        ["literature" 114]]))
 
-(defn edn-dump []
-  "dump all entities in given namespace nspace"
-  (d/q '[:find  [(pull ?e [*]) ...]
-         :where
-         [?e ?aid ?v]
-         [?aid :db/ident ?a]]
-       db))
+;; custom aggregate
+(defn list [xs]
+  (string/join ", " xs))
 
-(def datomic-db nil)
-(def datascript-db @(datascript/create-conn schema))
-(def yadat-db @(yadat/open :sorted-set schema))
+(is (= (yadat/q '{:find [(yadat.integration-test/list ?surname)]
+                  :where [[?id :firstname "Paul"]
+                          [?id :surname ?surname]]}
+                connection)
+       [["Modrich, Ehrlich, Karrer, Krugman, Berg, Greengard, Sabatier"]]))
 
-;; maybe i can already use the musicbrainz one - just need to get yadat fast enough lol
-;; let's see how fast datascript is
+;; custom predicate
+(defn compare-dates [date-string1 date-string2]
+  (let [->date (fn [[y m d]]
+                 (Date. (Integer/parseInt y)
+                        (Integer/parseInt m)
+                        (Integer/parseInt d)))
+        date1 (->date (string/split date-string1 #"-"))
+        date2 (->date (string/split date-string2 #"-"))]
+    (.before date1 date2)))
 
-;; also need to insert the rows into the dbs. so setup fns would make sense after all
+(is (= (yadat/q '{:find [?firstname ?born-date]
+                  :where [[?id :firstname ?firstname]
+                          [?id :born ?born-date]
+                          [(yadat.integration-test/compare-dates "1990-01-01" ?born-date)]]}
+                connection)
+       [["Malala" "1997-07-12"]]))
 
-(defmacro timed [& body]
-  `(do
-     (prn "Running" '~@body)
-     (let [start# (. System (nanoTime))
-           result# (do ~@body)
-           time# (/ (double (- (. System (nanoTime)) start#)) 1000000.0)]
-       {:result result# :time time# })))
+;; function & custom function
 
-;; collect results in global var and print when all tests finished
-(defn query-test [query-map]
-  (let [datomic-result (timed (datomic/q query-map datomic-db))
-        datascript-result (timed (datascript/q query-map datascript-db))
-        yadat-result (timed (yadat/q query-map yadat-db))
+nil
 
-        yadat-passed? (is (= (sort (:result datomic-result))
-                             (sort (:result yadat-result))))
-        datascript-passed? (is (= (sort (:result datomic-result))
-                                  (sort (:result datascript-result))))
-        result {:datomic {:pass true
-                          :time (:time datomic-result)}
-                :datascript {:pass datascript-passed?
-                             :time (:time datascript-result)}
-                :yadat {:pass yadat-passed?
-                        :time (:time yadat-result)}}]
-    (clojure.pprint/pprint result)
-    (swap! results conj result)))
+;; rules
 
-(deftest integration-test
-  (testing "John Lennon"
-    (query-test '{:find [?title ?album ?year]
-                  :where [[?a :artist/name   "John Lennon"]
-                          [?t :track/artists ?a]
-                          [?t :track/name    ?title]
-                          [?m :medium/tracks ?t]
-                          [?r :release/media ?m]
-                          [?r :release/name  ?album]
-                          [?r :release/year  ?year]]})))
+nil
+
+;; pull all
+
+nil
+
+;; predicate
+(is (= (yadat/q '{:find [?surname]
+                  :where [[?id :surname ?surname]
+                          [(clojure.string/starts-with? ?surname "Ein")]]}
+                connection)
+       [["Einthoven"] ["Einstein"]]))
+
+;; simple join, relation
+(is (= (yadat/q '{:find [?firstname ?surname]
+                  :where [[?id :firstname ?firstname]
+                          [?id :surname ?surname]
+                          [?id :prizes ?prize-id]
+                          [?id :gender "female"]
+                          [?prize-id :year "2003"]]}
+                connection)
+       [["Shirin" "Ebadi"]]))
+
+
 
 ;; running tests (timeout: 60s)
 ;; | datomic | datascript | yadat    |
@@ -90,50 +95,6 @@
 
 
 
-;; retraction recursively retracts component comments
-(assert (= retracted-es #{story comment-1 comment-2}))
-
-
-;; https://github.com/Datomic/day-of-datomic/blob/master/tutorial/datalog_on_defrecords.clj
-;; >> use on non db
-
-
-;; rather than trying to get a dataset and then copying over the tests, get the tests and then find
-;; a matching dataset!
-
-
-;; test in
-
-{:find [?title]
- :in [$ ?artist-name]
- :where [[?a :artist/name ?artist-name]
-         [?t :track/artists ?a]
-         [?t :track/name ?title]]}
-
-;; extensive pattern join
-[:find ?title ?album ?year
- :in $ ?artist-name
- :where
- [?a :artist/name   ?artist-name]
- [?t :track/artists ?a]
- [?t :track/name    ?title]
- [?m :medium/tracks ?t]
- [?r :release/media ?m]
- [?r :release/name  ?album]
- [?r :release/year  ?year]]
-
-;; predicate
-[:find ?title ?album ?year
- :in $ ?artist-name
- :where
- [?a :artist/name   ?artist-name]
- [?t :track/artists ?a]
- [?t :track/name    ?title]
- [?m :medium/tracks ?t]
- [?r :release/media ?m]
- [?r :release/name  ?album]
- [?r :release/year  ?year]
- [(< ?year 1970)]]
 
 ;; rules
 [:find ?title ?album ?year
@@ -251,10 +212,10 @@
 (d/q '[:find ?track-name ?minutes
        :in $ ?artist-name
        :where [?artist :artist/name ?artist-name]
-              [?track :track/artists ?artist]
-              [?track :track/duration ?millis]
-              [(quot ?millis 60000) ?minutes]
-              [?track :track/name ?track-name]]
+       [?track :track/artists ?artist]
+       [?track :track/duration ?millis]
+       [(quot ?millis 60000) ?minutes]
+       [?track :track/name ?track-name]]
      db "John Lennon")
 
 (d/q '[:find ?celsius .
@@ -311,7 +272,6 @@
                  [?release :release/name ?name]]
         db
         mccartney)))
-
 
 ;; attribute name
 (d/pull db [:artist/name :artist/startYear] led-zeppelin)
@@ -380,7 +340,6 @@
      db
      led-zeppelin
      [:release/name])
-
 
 ;; use pull to traverse the graph from anne through recursion:
 ;; a depth of 1

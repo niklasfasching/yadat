@@ -1,10 +1,12 @@
 (ns yadat.test-helper
-  (:require [clojure.edn :as edn]
+  (:require [clojure.test :refer :all]
+            [clojure.java.io :as io]
+            [clojure.edn :as edn]
             [datascript.core :as datascript]
             [datomic.api :as datomic]
             [yadat.core :as yadat]))
 
-(def laureates (edn/read-string (slurp "resources/nobel-prize-laureates.edn")))
+(def laureates (edn/read-string (slurp (io/resource "resources/nobel-prize-laureates.edn"))))
 
 (def laureate-schema-datascript
   {:id {:db/unique :db.unique/value}
@@ -111,20 +113,20 @@
            time# (/ (double (- (. System (nanoTime)) start#)) 1000000.0)]
        {:result result# :time time# })))
 
-(defn query-test [query-map]
+(defn query [query-map]
   (let [datomic-result (timed (datomic/q query-map datomic-db))
         datascript-result (timed (datascript/q query-map datascript-db))
-        yadat-result (timed (yadat/q query-map yadat-db))
-
-        yadat-passed? (is (= (sort (:result datomic-result))
-                             (sort (:result yadat-result))))
-        datascript-passed? (is (= (sort (:result datomic-result))
-                                  (sort (:result datascript-result))))
-        result {:datomic {:pass true
-                          :time (:time datomic-result)}
-                :datascript {:pass datascript-passed?
-                             :time (:time datascript-result)}
-                :yadat {:pass yadat-passed?
-                        :time (:time yadat-result)}}]
-    (clojure.pprint/pprint result)
-    (swap! results conj result)))
+        yadat-result (timed (yadat/q query-map (atom yadat-db)))
+        result {:datomic
+                (assoc datomic-result :pass true)
+                
+                :datascript
+                (assoc datascript-result
+                       :pass (is (= (sort (:result datomic-result))
+                                    (sort (:result datascript-result)))))
+                
+                :yadat
+                (assoc yadat-result
+                       :pass (is (= (sort (:result datomic-result))
+                                    (sort (:result yadat-result)))))}]
+    result))
