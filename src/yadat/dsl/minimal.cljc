@@ -119,39 +119,27 @@
 
 (extend-protocol dsl/IFindElement
   yadat.dsl.FindVariable
-  (element-vars [{:keys [var]}]
-    [var])
   (resolve-find-element [{:keys [var]} db row]
     (get row var))
 
   yadat.dsl.FindPull
-  (element-vars [{:keys [var]}]
-    [var])
   (resolve-find-element [{:keys [pattern var]} db row]
     (dsl/resolve-pull-pattern pattern db (get row var)))
 
   yadat.dsl.FindAggregate
-  (element-vars [{:keys [args]}]
-    (filter util/var? args))
   (resolve-find-element [{:keys [args]} db row]
     (some #(if (util/var? %) (get row %)) args)))
 
 (extend-protocol dsl/IFindSpec
   yadat.dsl.FindScalar
-  (spec-vars [{:keys [element]}]
-    (dsl/element-vars element))
   (resolve-find-spec [{:keys [element]} db rows]
     (dsl/resolve-find-element element db (first rows)))
 
   yadat.dsl.FindTuple
-  (spec-vars [{:keys [elements]}]
-    (mapcat dsl/element-vars elements))
   (resolve-find-spec [{:keys [elements]} db rows]
     (mapv #(dsl/resolve-find-element % db (first rows)) elements))
 
   yadat.dsl.FindRelation
-  (spec-vars [{:keys [elements]}]
-    (mapcat dsl/element-vars elements))
   (resolve-find-spec [{:keys [elements]} db rows]
     (let [tuples (map (fn [row]
                         (mapv #(dsl/resolve-find-element % db row) elements))
@@ -161,8 +149,6 @@
         tuples)))
 
   yadat.dsl.FindCollection
-  (spec-vars [{:keys [element]}]
-    (dsl/element-vars element))
   (resolve-find-spec [{:keys [element]} db rows]
     (let [values (map #(dsl/resolve-find-element element db %) rows)]
       (if (instance? yadat.dsl.FindAggregate element)
@@ -213,7 +199,7 @@
   [db query]
   (let [find (dsl/find-spec (:find query))
         where (dsl/where-clauses (:where query))
-        variables (set (concat (dsl/spec-vars find) (:with query)))
+        variables (set (concat (dsl/vars find) (:with query)))
         ;; in (resolve-in (or (:in query) '[$])
         tuples (->> (dsl/resolve-clause where db [])
                     (r/merge r/inner-join)

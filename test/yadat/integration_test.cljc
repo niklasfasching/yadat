@@ -10,6 +10,9 @@
             [clojure.string :as string]
             [yadat.test-helper :as th]))
 
+
+
+{}
 #_(clojure.test/use-fixtures :once
   (fn [t]
     (wrap (t))

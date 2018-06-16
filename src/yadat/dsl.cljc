@@ -2,6 +2,9 @@
   (:require [clojure.core.match :refer [match]]
             [yadat.util :as util]))
 
+(defprotocol IVariableContainer
+  (vars [this]))
+
 (defprotocol IQuery
   (resolve-query [this inputs relations]))
 
@@ -12,12 +15,10 @@
   (resolve-rule [this db relations]))
 
 (defprotocol IFindElement
-  (resolve-find-element [this db row])
-  (element-vars [this]))
+  (resolve-find-element [this db row]))
 
 (defprotocol IFindSpec
-  (resolve-find-spec [this db rows])
-  (spec-vars [this]))
+  (resolve-find-spec [this db rows]))
 
 (defprotocol IClause
   (resolve-clause [this db relations]))
@@ -30,26 +31,73 @@
 
 (defrecord Query [find where in with])
 
-(defrecord Rules [rules])
-(defrecord Rule [name required-vars vars clauses])
+(defrecord Rules [rules]
+  IVariableContainer
+  (vars [this] (mapcat vars rules)))
 
-(defrecord AndClause [clauses])
-(defrecord OrClause [clauses])
-(defrecord OrJoinClause [clauses])
-(defrecord NotClause [clauses])
-(defrecord NotJoinClause [clauses])
-(defrecord FunctionClause [f args vars])
-(defrecord PredicateClause [f args])
-(defrecord PatternClause [pattern])
+(defrecord Rule [name required-vars vars clauses]
+  IVariableContainer
+  (vars [this] (concat required-vars vars)))
 
-(defrecord FindScalar [element])
-(defrecord FindTuple [elements])
-(defrecord FindRelation [elements])
-(defrecord FindCollection [element])
+(defrecord AndClause [clauses]
+  IVariableContainer
+  (vars [this] (mapcat vars clauses)))
 
-(defrecord FindVariable [var])
-(defrecord FindPull [var pattern])
-(defrecord FindAggregate [f args])
+(defrecord OrClause [clauses]
+  IVariableContainer
+  (vars [this] (mapcat vars clauses)))
+
+(defrecord OrJoinClause [vars clauses]
+  IVariableContainer
+  (vars [this] vars))
+
+(defrecord NotClause [clauses]
+  IVariableContainer
+  (vars [this] (mapcat vars clauses)))
+
+(defrecord NotJoinClause [vars clauses]
+  IVariableContainer
+  (vars [this] vars))
+
+(defrecord FunctionClause [f args vars]
+  IVariableContainer
+  (vars [this] vars))
+
+(defrecord PredicateClause [f args]
+  IVariableContainer
+  (vars [this] []))
+
+(defrecord PatternClause [pattern]
+  IVariableContainer
+  (vars [this] (filter util/var? pattern)))
+
+(defrecord FindScalar [element]
+  IVariableContainer
+  (vars [this] (vars element)))
+
+(defrecord FindTuple [elements]
+  IVariableContainer
+  (vars [this] (mapcat vars elements)))
+
+(defrecord FindRelation [elements]
+  IVariableContainer
+  (vars [this] (mapcat vars elements)))
+
+(defrecord FindCollection [element]
+  IVariableContainer
+  (vars [this] (vars element)))
+
+(defrecord FindVariable [var]
+  IVariableContainer
+  (vars [this] [var]))
+
+(defrecord FindPull [var pattern]
+  IVariableContainer
+  (vars [this] [var]))
+
+(defrecord FindAggregate [f args]
+  IVariableContainer
+  (vars [this] (filter util/var? args)))
 
 (defrecord PullPattern [elements])
 
@@ -75,9 +123,11 @@
 (defn where-clause [form]
   (match [form]
     [(['or & clauses] :seq)] (->OrClause (map where-clause clauses))
-    [(['or-join & clauses] :seq)] (->OrJoinClause (map where-clause clauses))
+    [(['or-join [& vars] & clauses] :seq)] (->OrJoinClause
+                                            vars (map where-clause clauses))
     [(['not & clauses] :seq)] (->NotClause (map where-clause clauses))
-    [(['not-join & clauses] :seq)] (->NotJoinClause (map where-clause clauses))
+    [(['not-join [& vars] & clauses] :seq)] (->NotJoinClause
+                                             vars (map where-clause clauses))
     [(['and & clauses] :seq)] (->AndClause (map where-clause clauses))
     [[([(f :guard symbol?) & args] :seq)]] (->PredicateClause f args)
     [[([(f :guard symbol?) & args] :seq)
@@ -118,6 +168,10 @@
   (->Rules (map rule form)))
 
 ;; inputs cannot be parsed at query parse time, must be resolved to relations and shit at execution time
+
+(def query-cache {})
+(defn validate-query [])
+
 (defn query [form]
   (let [query (->Query
                (find-spec (:find form))
