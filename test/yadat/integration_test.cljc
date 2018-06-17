@@ -10,21 +10,40 @@
             [clojure.string :as string]
             [yadat.test-helper :as th]))
 
-;; by making it data i can hopefully also generate js to test it against datascript
-;; does that actually work?
-;; if so go ahead
-;; think more about how to proceed before proceeding
-(def cases
-  [{:name "aggregate"
-    :query '{:find [?category (count ?id)]
-             :where [[?id :category ?category]]}}
+(deftest integration-test
+  ;; problem already...
+  #_(testing "custom aggregate"
+      (th/query '{:find [[(yadat.integration-test/sorted-interpose ?surname) ...]]
+                  :where [[?id :firstname "Paul"]
+                          [?id :surname ?surname]]} :$))
 
-   {:name "custom aggregate"
-    :query '{:find [[(yadat.integration-test/sorted-interpose ?surname) ...]]
-             :where [[?id :firstname "Paul"]
-                     [?id :surname ?surname]]}}
+  (testing "custom predicate"
+    (th/query '{:find [?firstname ?born-date]
+                :where [[?id :firstname ?firstname]
+                        [?id :born ?born-date]
+                        [(yadat.integration-test/born-in-year
+                          ?born-date "1997")]]}))
 
-   ])
+  (testing "predicate"
+    (th/query '{:find [?surname]
+                :where [[?id :surname ?surname]
+                        [(clojure.string/starts-with? ?surname "Ein")]]}))
+
+  (testing "aggregate"
+    (th/query '{:find [?category (count ?id)]
+                :where [[?id :category ?category]]}
+              :$))
+
+  (testing "simple join"
+    (th/query '{:find [?firstname ?surname]
+                :where [[?id :firstname ?firstname]
+                        [?id :surname ?surname]
+                        [?id :prizes ?prize-id]
+                        [?id :gender "female"]
+                        [?prize-id :year "2003"]]}
+              :$))
+
+  )
 
 (defmacro timed [& body]
   `(do
@@ -39,7 +58,7 @@
            (frequencies (:result r2))))
     (is (= (:result r1) (:result r2)))))
 
-(defn query [query-map]
+(defn query [query-map & inputs]
   (let [datomic-result (timed (datomic/q query-map datomic-db))
         datascript-result (timed (datascript/q query-map datascript-db))
         yadat-result (timed (yadat/q query-map (atom yadat-db)))]
@@ -49,21 +68,14 @@
      :yadat (assoc yadat-result :pass
                    (compare-results datomic-result datascript-result))}))
 
+
+;; continue later... don't want to right now
+
 (defn log [{:keys [datomic datascript yadat]}]
   (clojure.pprint/print-table
    [{:datomic (:time datomic)
      :datascript (:time datascript)
      :yadat (:time yadat)}]))
-
-(doseq [{:keys [name query] :as case} cases]
-
-  )
-
-;; multiple runs - first validate datascript against datomic
-;; then yadat against datomic
-;; ignore inconsistencies with datascript though - datomic is source of truth
-;; create perf table
-
 
 #_(clojure.test/use-fixtures :once
     (fn [t]
@@ -78,53 +90,8 @@
   [xs]
   (interpose "," (sort xs)))
 
-(defn hacky-compare-dates
-  "Custom predicate. Compare date strings using string comparison. Sorry...
-  We know our dates start with YYYY (years of length 4) and can abuse that to
-  get what we want using string comparison to simplify this example but still
-  target both js & jvm."
-  [date-string1 date-string2]
-  (> (compare date-string1 date-string2) 0))
-
-(deftest aggregate-test
-  (testing "aggregate"
-    (th/query '{:find [?category (count ?id)]
-                :where [[?id :category ?category]]}))
-  (testing "custom-aggregate"
-    (th/query '{:find [[(yadat.integration-test/sorted-interpose ?surname) ...]]
-                :where [[?id :firstname "Paul"]
-                        [?id :surname ?surname]]})))
-
-(defn predicate-compare-dates [date-string1 date-string2]
-  (let [->date (fn [[y m d]]
-                 (Date. (Integer/parseInt y)
-                        (Integer/parseInt m)
-                        (Integer/parseInt d)))
-        date1 (->date (string/split date-string1 #"-"))
-        date2 (->date (string/split date-string2 #"-"))]
-    (.before date1 date2)))
-
-(deftest predicate-test
-  (testing "predicate"
-    (th/query '{:find [?surname]
-                :where [[?id :surname ?surname]
-                        [(clojure.string/starts-with? ?surname "Ein")]]}))
-
-  (testing "custom predicate"
-    (th/query '{:find [?firstname ?born-date]
-                :where [[?id :firstname ?firstname]
-                        [?id :born ?born-date]
-                        [(yadat.integration-test/hacky-compare-dates
-                          ?born-date "1990")]]})))
-
-(deftest shared-test
-  (testing "simple join"
-    (th/query '{:find [?firstname ?surname]
-                :where [[?id :firstname ?firstname]
-                        [?id :surname ?surname]
-                        [?id :prizes ?prize-id]
-                        [?id :gender "female"]
-                        [?prize-id :year "2003"]]})))
+(defn born-in-year [born-date-string yyyy-string]
+  (string/starts-with? born-date-string yyyy-string))
 
 (deftest rule-test)
 ;; function & custom function

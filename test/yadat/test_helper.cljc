@@ -107,3 +107,11 @@
   (let [connection (yadat/open :sorted-set laureate-schema-datascript)]
     (yadat/insert connection laureates)
     @connection))
+
+
+(defn query [query-map & inputs]
+  (let [datomic-result (timed (datomic/q query-map datomic-db))
+        yadat-result (timed (yadat/q query-map (atom yadat-db)))]
+    {:datomic (assoc datomic-result :pass true)
+     :yadat (assoc yadat-result :pass
+                   (compare-results datomic-result yadat-result))}))
