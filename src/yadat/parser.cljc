@@ -1,6 +1,19 @@
-(ns yadat.dsl
+(ns yadat.parser
   (:require [clojure.core.match :refer [match]]
             [yadat.util :as util]))
+
+(def query-cache (atom {}))
+
+(defn update-query-cache
+  "Return `cache` with [`raw-query` `parsed-query`]. Limits cache size to 100.
+  This is a really naive cache - no strategy is followed, a random entry is
+  removed when the cache grows to big. Should be replaced by a LRU / LFU cache
+  later on but we need to start with something and this was the most basic thing
+  i could think of."
+  [cache raw-query parsed-query]
+  (if (< (count cache) 100)
+    (assoc cache raw-query parsed-query)
+    (assoc (into {} (rest cache)) raw-query parsed-query)))
 
 (defprotocol IVariableContainer
   (vars [this]))
@@ -167,17 +180,13 @@
 (defn rules [form]
   (->Rules (map rule form)))
 
-;; inputs cannot be parsed at query parse time, must be resolved to relations and shit at execution time
-
-(def query-cache {})
-(defn validate-query [])
-
 (defn query [form]
-  (let [query (->Query
-               (find-spec (:find form))
-               (where-clauses (:where form))
-               nil
-               nil)]
-    ;; validate vars in find exist in body
-
-    ))
+  (if-let [parsed-query (get query-cache form)]
+    parsed-query
+    (let [parsed-query (->Query
+                        (find-spec (:find form))
+                        (where-clauses (:where form))
+                        nil
+                        nil)]
+      ;; TODO validate query
+      (swap! query-cache update-query-cache form parsed-query))))
