@@ -3,25 +3,16 @@ get-else https://stackoverflow.com/questions/21101259/find-entities-with-missing
 ;; https://github.com/Datomic/day-of-datomic/blob/master/tutorial/datalog_on_defrecords.clj
 * ToDo
 - make tests cljs compatible
-- integration test
-  http://api.nobelprize.org/v1/prize.json
-  http://api.nobelprize.org/v1/laureate.json
-
-  validation against datascript or against datomic?
-  problem with datomic is that sort order not always and stuff
-  -> frequencies
-
 - implement rules
   or-clause ~ invocation of anonymous rule whose predicates make up clause
-- generative testing queries
-  this could also be a thing...
-
+- generative testing for query/pull?
 - extensibility - e.g. fulltext search on top of set, sorted-set?
   a new db type until i decide on how extensibility should work
 - async?
   https://github.com/clojure/core.async/blob/master/examples/walkthrough.clj
   https://github.com/tonsky/datascript/issues/190
   -> infectious. but semantics stay the same so rewrite once those are fixed
+  reagent looks to be fine with it and it standardizes api  https://github.com/reagent-project/reagent/pull/343/files
 - schema validation
   see https://docs.datomic.com/on-prem/schema.html - this also specifies transaction
   ensure isComponent is a reference
@@ -32,9 +23,6 @@ get-else https://stackoverflow.com/questions/21101259/find-entities-with-missing
 - query
   - clause with lookup-ref
     lookup-ref -> eid resolved only when in value position & attribute is a reference!
-  - in
-  - rules
-  - or-join, not-join
 - tests
   - unique insert conflict
   - lookup ref insert / query
@@ -48,13 +36,12 @@ get-else https://stackoverflow.com/questions/21101259/find-entities-with-missing
 - api
   - spit/slurp in cljs, js - not as obvious as in clj
   - provide async versions of api in js ->
-  - async api? reagent looks to be fine with it and it standardizes api  https://github.com/reagent-project/reagent/pull/343/files
 - performance
   - alternative db implementations: data.avl, hitchhiker tree
-  - performance tests using CC datasets, e.g. [[https://datacatalog.worldbank.org/search?sort_by=field_wbddh_modified_date&search_api_views_fulltext_op=AND&sort_order=DESC][worldbank]]
-  - magic set transformation
-- db.fn
-- multiple / customizable sources (databases)
+  - magic set transformation and stuff
+- next missing datomic features
+  - db.fn
+  - multiple / customizable sources (databases)
 * in
 $... src-var is a db
 % rules-var

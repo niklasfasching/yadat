@@ -2,93 +2,10 @@
   (:require [clojure.test :refer :all]
             [clojure.java.io :as io]
             [clojure.edn :as edn]
-            [datascript.core :as datascript]
-            [datomic.api :as datomic]
-            [yadat.core :as yadat]))
+            ))
+
 
 (def laureates (edn/read-string (slurp (io/resource "resources/nobel-prize-laureates.edn"))))
-
-(def laureate-schema-datascript
-  {:id {:db/unique :db.unique/value}
-   :prizes {:db/valueType :db.type/ref
-            :db/cardinality :db.cardinality/many
-            :db/isComponent true}
-   :affiliations {:db/valueType :db.type/ref
-                  :db/cardinality :db.cardinality/many
-                  :db/isComponent true}})
-
-(def laureate-schema-datomic
-  [{:db/ident :id
-    :db/unique :db.unique/value
-    :db/valueType :db.type/string
-    :db/cardinality :db.cardinality/one}
-   {:db/ident :firstname
-    :db/valueType :db.type/string
-    :db/cardinality :db.cardinality/one}
-   {:db/ident :surname
-    :db/valueType :db.type/string
-    :db/cardinality :db.cardinality/one}
-   {:db/ident :born
-    :db/valueType :db.type/string
-    :db/cardinality :db.cardinality/one}
-   {:db/ident :bornCountry
-    :db/valueType :db.type/string
-    :db/cardinality :db.cardinality/one}
-   {:db/ident :bornCountryCode
-    :db/valueType :db.type/string
-    :db/cardinality :db.cardinality/one}
-   {:db/ident :bornCity
-    :db/valueType :db.type/string
-    :db/cardinality :db.cardinality/one}
-   {:db/ident :gender
-    :db/valueType :db.type/string
-    :db/cardinality :db.cardinality/one}
-   {:db/ident :died
-    :db/valueType :db.type/string
-    :db/cardinality :db.cardinality/one}
-   {:db/ident :diedCountry
-    :db/valueType :db.type/string
-    :db/cardinality :db.cardinality/one}
-   {:db/ident :diedCountryCode
-    :db/valueType :db.type/string
-    :db/cardinality :db.cardinality/one}
-   {:db/ident :diedCity
-    :db/valueType :db.type/string
-    :db/cardinality :db.cardinality/one}
-   {:db/ident :prizes
-    :db/valueType :db.type/ref
-    :db/cardinality :db.cardinality/many
-    :db/isComponent true}
-
-   {:db/ident :year
-    :db/valueType :db.type/string
-    :db/cardinality :db.cardinality/one}
-   {:db/ident :category
-    :db/valueType :db.type/string
-    :db/cardinality :db.cardinality/one}
-   {:db/ident :share
-    :db/valueType :db.type/string
-    :db/cardinality :db.cardinality/one}
-   {:db/ident :motivation
-    :db/valueType :db.type/string
-    :db/cardinality :db.cardinality/one}
-   {:db/ident :overallMotivation
-    :db/valueType :db.type/string
-    :db/cardinality :db.cardinality/one}
-   {:db/ident :affiliations
-    :db/valueType :db.type/ref
-    :db/cardinality :db.cardinality/many
-    :db/isComponent true}
-
-   {:db/ident :name
-    :db/valueType :db.type/string
-    :db/cardinality :db.cardinality/one}
-   {:db/ident :city
-    :db/valueType :db.type/string
-    :db/cardinality :db.cardinality/one}
-   {:db/ident :country
-    :db/valueType :db.type/string
-    :db/cardinality :db.cardinality/one}])
 
 (def datomic-db
   (let [uri (str "datomic:mem://" (gensym))]

@@ -219,7 +219,7 @@
   (->With form))
 
 (defn query [form]
-  (if-let [parsed-query (get query-cache form)]
+  (if-let [parsed-query (get cache form)]
     parsed-query
     (let [parsed-query (->Query
                         (find-spec (:find form))

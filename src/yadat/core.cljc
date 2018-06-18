@@ -4,9 +4,9 @@
             [yadat.db.minimal]
             [yadat.db.sorted-set]
             [yadat.util :as util]
-            [yadat.dsl :as dsl]
-            [yadat.dsl.minimal :as mdsl]
-            [yadat.relation :as r]))
+            [yadat.query :as query]
+            [yadat.relation :as r]
+            [yadat.pull :as pull]))
 
 (defn insert
   "Insert `entities` into `connection`. Modifies `connection`."
@@ -33,22 +33,17 @@
   In cljs query map must be provided as an edn string."
   [connection query & inputs]
   (let [db @connection]
-    (mdsl/query db query)))
+    (query/query db query)))
 
 (defn q
   "Queries `connection` for `query` map. Optionally takes further `inputs`.
   In cljs query map must be provided as an edn string."
   [query connection & inputs]
   (let [db @connection]
-    (mdsl/query db query)))
+    (query/query db query)))
 
 (defn pull [db eid pattern]
-  (let [[_ eid] (cond
-                  (db/lookup-ref? db eid) (db/resolve-lookup-ref-eid
-                                           {:db db} eid)
-                  (db/real-eid? db eid) [nil eid]
-                  :else (throw (ex-info "Invalid eid" {:eid eid})))]
-    (dsl/resolve-pull-pattern (dsl/pull-pattern pattern) db eid)))
+  (pull/pull db eid pattern))
 
 ;; (defn slurp
 ;;   "Read db of type `t` from `f`.

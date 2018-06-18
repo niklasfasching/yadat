@@ -69,3 +69,11 @@
   (resolve-pull-element [{:keys [a options]} db entity]
     (let [datoms (select-datoms db entity a options)]
       (extend-entity db entity a datoms options))))
+
+(defn pull [db eid pattern]
+  (let [[_ eid] (cond
+                  (db/lookup-ref? db eid) (db/resolve-lookup-ref-eid
+                                           {:db db} eid)
+                  (db/real-eid? db eid) [nil eid]
+                  :else (throw (ex-info "Invalid eid" {:eid eid})))]
+    (parser/resolve-pull-pattern (parser/pull-pattern pattern) db eid)))
