@@ -2,18 +2,18 @@
   (:require [clojure.core.match :refer [match]]
             [yadat.util :as util]))
 
-(def query-cache (atom {}))
+(def cache (atom {}))
 
-(defn update-query-cache
-  "Return `cache` with [`raw-query` `parsed-query`]. Limits cache size to 100.
+(defn update-cache
+  "Return `cache` with [`raw-form` `parsed-form`]. Limits cache size to 100.
   This is a really naive cache - no strategy is followed, a random entry is
   removed when the cache grows to big. Should be replaced by a LRU / LFU cache
   later on but we need to start with something and this was the most basic thing
   i could think of."
-  [cache raw-query parsed-query]
+  [cache raw-form parsed-form]
   (if (< (count cache) 100)
-    (assoc cache raw-query parsed-query)
-    (assoc (into {} (rest cache)) raw-query parsed-query)))
+    (assoc cache raw-form parsed-form)
+    (assoc (into {} (rest cache)) raw-form parsed-form)))
 
 (defprotocol IVariableContainer
   (vars [this]))
@@ -120,6 +120,29 @@
 (defrecord PullAttributeWithOptions [a options])
 (defrecord PullAttributeExpression [a options])
 
+(defrecord Inputs [inputs])
+
+(defrecord InputSource [])
+(defrecord InputScalar [var]
+  IVariableContainer
+  (vars [this] [var]))
+
+(defrecord InputTuple [vars]
+  IVariableContainer
+  (vars [this] vars))
+
+(defrecord InputCollection [var]
+  IVariableContainer
+  (vars [this] [var]))
+
+(defrecord InputRelation [vars]
+  IVariableContainer
+  (vars [this] vars))
+
+(defrecord With [vars]
+  IVariableContainer
+  (vars [this] vars))
+
 (defn pull-element [form]
   (match [form]
     ['*] (->PullWildcard)
@@ -180,13 +203,28 @@
 (defn rules [form]
   (->Rules (map rule form)))
 
+(defn input [form]
+  (match [form]
+    ['$] (->InputSource)
+    [(v :guard util/var?)] (->InputScalar v)
+    [[[& vs]]] (->InputRelation vs)
+    [[v '...]] (->InputCollection v)
+    [[& vs]] (->InputTuple vs)
+    :else (throw (ex-info "Invalid input definition" {:input form}))))
+
+(defn inputs [form]
+  (->Inputs (map input form)))
+
+(defn with [form]
+  (->With form))
+
 (defn query [form]
   (if-let [parsed-query (get query-cache form)]
     parsed-query
     (let [parsed-query (->Query
                         (find-spec (:find form))
                         (where-clauses (:where form))
-                        nil
-                        nil)]
+                        (inputs (:in form))
+                        (with (:with form)))]
       ;; TODO validate query
-      (swap! query-cache update-query-cache form parsed-query))))
+      (swap! cache update-cache form parsed-query))))
