@@ -1,4 +1,4 @@
-(ns yadat.parser
+(ns yadat.dsl
   (:require [clojure.core.match :refer [match]]
             [yadat.util :as util]))
 
@@ -22,19 +22,25 @@
   (resolve-query [this inputs relations]))
 
 (defprotocol IRules
-  (resolve-rules [this db relations]))
+  (resolve-rules [this dbs relations]))
 
 (defprotocol IRule
-  (resolve-rule [this db relations]))
+  (resolve-rule [this dbs relations]))
+
+(defprotocol IInput
+  (resolve-input [this value]))
+
+(defprotocol IInputs
+  (resolve-inputs [this values]))
 
 (defprotocol IFindElement
-  (resolve-find-element [this db row]))
+  (resolve-find-element [this dbs row]))
 
 (defprotocol IFindSpec
-  (resolve-find-spec [this db rows]))
+  (resolve-find-spec [this dbs rows]))
 
 (defprotocol IClause
-  (resolve-clause [this db relations]))
+  (resolve-clause [this dbs relations]))
 
 (defprotocol IPullPattern
   (resolve-pull-pattern [this db eid]))
@@ -122,7 +128,8 @@
 
 (defrecord Inputs [inputs])
 
-(defrecord InputSource [])
+(defrecord InputSource [src-var])
+
 (defrecord InputScalar [var]
   IVariableContainer
   (vars [this] [var]))
@@ -153,8 +160,8 @@
                                               a (apply hash-map options))
     :else (throw (ex-info "Invalid pull element" {:element form}))))
 
-(defn pull-pattern [form]
-  (->PullPattern (map pull-element form)))
+(defn pull-pattern [src form]
+  (->PullPattern src (map pull-element form)))
 
 (defn where-clause [form]
   (match [form]
@@ -174,11 +181,13 @@
 (defn where-clauses [form]
   (->AndClause (map where-clause form)))
 
+
+;; The pull expression pattern can also be bound dynamically as an :in parameter to query:
 (defn find-element [form]
   (match [form]
     [(v :guard util/var?)] (->FindVariable v)
     [(['pull (v :guard util/var?) [& pattern]] :seq)] (->FindPull
-                                                       v (pull-pattern pattern))
+                                                       v (pull-pattern '$ pattern)) ;; TODO
     [([f & args] :seq)] (->FindAggregate f args)
     :else (throw (ex-info "Invalid find element" {:element form}))))
 
@@ -205,7 +214,7 @@
 
 (defn input [form]
   (match [form]
-    ['$] (->InputSource)
+    [(v :guard util/src?)] (->InputSource v)
     [(v :guard util/var?)] (->InputScalar v)
     [[[& vs]]] (->InputRelation vs)
     [[v '...]] (->InputCollection v)
@@ -213,7 +222,9 @@
     :else (throw (ex-info "Invalid input definition" {:input form}))))
 
 (defn inputs [form]
-  (->Inputs (map input form)))
+  (if form
+    (->Inputs (map input form))
+    (->Inputs (map input '[$]))))
 
 (defn with [form]
   (->With form))
@@ -225,6 +236,5 @@
                         (find-spec (:find form))
                         (where-clauses (:where form))
                         (inputs (:in form))
-                        (with (:with form)))]
-      ;; TODO validate query
+                        (with (:with form)))] ;; TODO validate query
       (swap! cache update-cache form parsed-query))))

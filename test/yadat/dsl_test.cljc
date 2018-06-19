@@ -1,5 +1,5 @@
-(ns yadat.parser-test
-  (:require [yadat.parser :as parser]
+(ns yadat.dsl-test
+  (:require [yadat.dsl :as dsl]
             #?(:clj [clojure.test :as t]
                :cljs [cljs.test :as t :include-macros true])))
 
@@ -9,4 +9,4 @@
     )
   )
 
-(parser/clause '[(a "" ?bar) ?a ?b ?c])
+(dsl/clause '[(a "" ?bar) ?a ?b ?c])

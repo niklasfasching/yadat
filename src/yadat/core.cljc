@@ -33,7 +33,7 @@
   In cljs query map must be provided as an edn string."
   [connection query & inputs]
   (let [db @connection]
-    (query/query db query)))
+    (dsl/query db query)))
 
 (defn q
   "Queries `connection` for `query` map. Optionally takes further `inputs`.

@@ -6,6 +6,9 @@
 (defn var? [x]
   (and (symbol? x) (= \? (first (name x)))))
 
+(defn src? [x]
+  (and (symbol? x) (= \$ (first (name x)))))
+
 (def built-ins
   {'avg (fn avg [xs] (/ (reduce + xs) (count xs)))
    'sum (fn sum [xs] (reduce + xs))

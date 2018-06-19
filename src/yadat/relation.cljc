@@ -59,3 +59,7 @@
         {intersecting-relations true relations false} groups
         intersecting-relation (merge inner-join intersecting-relations)]
     [relations intersecting-relation]))
+
+;; there's two types of relations. A tuple relation and a datom relation
+;; querying is joining the tuple relations
+;; the datom relation is queried...

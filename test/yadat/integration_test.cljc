@@ -137,9 +137,9 @@
   (apply q (concat [query] (inputs-fn db))))
 
 (defn compare-results [result1 result2]
-  ;; x
-  ;; list of x -> frequencies
-  ;; list list (tuple) of x -> frequencies of frequencies (?)
+  ;; x -> x
+  ;; set/vec/list of list vector (tuple) -> frequencies of frequencies (?)
+  ;; set/vec/list of x -> frequencies
   (= (frequencies result1) (frequencies result2))
   )
 
@@ -159,6 +159,9 @@
 (deftest integration-test
   (run-cases datomic [datascript yadat] cases))
 
+
+(run-case yadat (first (filter #(= (:name %) "custom aggregate") cases)))
+(run-case datomic (first (filter #(= (:name %) "custom aggregate") cases)))
 (comment
 
   #_(defmacro timed [& body]
