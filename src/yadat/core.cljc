@@ -4,8 +4,7 @@
             [yadat.db.minimal]
             [yadat.db.sorted-set]
             [yadat.util :as util]
-            [yadat.dsl :as dsl]
-            [yadat.dsl.query]
+            [yadat.query :as query]
             [yadat.relation :as r]
             [yadat.pull :as pull]))
 
@@ -29,19 +28,11 @@
      (insert db entities)
      db)))
 
-(defn query
-  "Queries `connection` for `query` map. Optionally takes further `inputs`.
-  In cljs query map must be provided as an edn string."
-  [connection query & inputs]
-  (let [db @connection]
-    (dsl/query db query)))
-
 (defn q
   "Queries `connection` for `query` map. Optionally takes further `inputs`.
   In cljs query map must be provided as an edn string."
-  [query connection & inputs]
-  (let [db @connection]
-    (query/query db query)))
+  [query & inputs]
+  (query/resolve-query query inputs))
 
 (defn pull [db eid pattern]
   (pull/pull db eid pattern))

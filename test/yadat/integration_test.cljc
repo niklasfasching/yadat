@@ -76,7 +76,7 @@
    :q yadat/q
    :db (let [connection (yadat/open :sorted-set laureate-schema-datascript)]
          (yadat/insert connection laureates)
-         connection)})
+         @connection)})
 
 ;; helpers
 
@@ -126,10 +126,11 @@
     :inputs-fn (fn [db] [db])}
 
    {:name "custom aggregate"
-    :query '{:find [[(yadat.integration-test/sorted-interpose ?surname) ...]]
+    :query '{:find [(yadat.integration-test/sorted-interpose ?surname)]
              :where [[?id :firstname "Paul"]
                      [?id :surname ?surname]]}
     :inputs-fn (fn [db] [db])}
+
    ])
 
 (defn run-case
@@ -158,7 +159,6 @@
 
 (deftest integration-test
   (run-cases datomic [datascript yadat] cases))
-
 
 (run-case yadat (first (filter #(= (:name %) "custom aggregate") cases)))
 (run-case datomic (first (filter #(= (:name %) "custom aggregate") cases)))

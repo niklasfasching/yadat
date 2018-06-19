@@ -206,4 +206,5 @@
                         (where-clauses (:where form))
                         (inputs (:in form))
                         (with (:with form)))] ;; TODO validate query
-      (swap! cache update-cache form parsed-query))))
+      (swap! cache update-cache form parsed-query)
+      parsed-query)))

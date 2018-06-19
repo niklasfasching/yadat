@@ -34,17 +34,11 @@
                      (apply f (concat args [(map #(nth % i) tuples)]))
                      v)) tuple (range))) groups)))
 
-(defprotocol IQuery
-  (resolve-query [this inputs relations]))
-
-(defprotocol IRules
-  (resolve-rules [this dbs relations]))
-
-(defprotocol IRule
-  (resolve-rule [this dbs relations]))
-
 (defprotocol IInput
   (resolve-input [this value]))
+
+(defprotocol IInputs
+  (resolve-inputs [this values]))
 
 (defprotocol IFindElement
   (resolve-find-element [this dbs row]))
@@ -171,18 +165,22 @@
   (resolve-input [this value]
     (r/relation (set (:vars this)) (set value))))
 
-(extend-protocol dsl/IQuery
-  yadat.dsl.Query
-  (resolve-query [this input-values]
-    (let [variables (set (concat (dsl/vars (:find this))
-                                 (dsl/vars (:with this))))
-          inputs (map resolve-input (:inputs this) input-values)
-          {relations true dbs false} (group-by
-                                      #(= (type %) yadat.relation.Relation)
-                                      inputs)
-          tuples (->> (resolve-clause (:where this) dbs relations)
-                      (r/merge r/inner-join)
-                      (:rows)
-                      (map #(select-keys % variables))
-                      (set))]
-      (resolve-find-spec (:find this) dbs tuples))))
+(extend-protocol IInputs
+  yadat.dsl.Inputs
+  (resolve-inputs [this values]
+    (let [inputs (map resolve-input (:inputs this) values)
+          predicate (fn [x] (= (type x) yadat.relation.Relation))
+          {relations true dbs false} (group-by predicate inputs)]
+      [dbs relations])))
+
+(defn resolve-query [form input-values]
+  (let [query (dsl/query form)
+        variables (set (concat (dsl/vars (:find query))
+                               (dsl/vars (:with query))))
+        [dbs relations] (resolve-inputs (:in query) input-values)
+        tuples (->> (resolve-clause (:where query) dbs relations)
+                    (r/merge r/inner-join)
+                    (:rows)
+                    (map #(select-keys % variables))
+                    (set))]
+    (resolve-find-spec (:find query) dbs tuples)))
