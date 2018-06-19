@@ -78,19 +78,6 @@
          (yadat/insert connection laureates)
          @connection)})
 
-;; helpers
-
-(defn sorted-interpose
-  "Custom aggregate. Sorting because order of xs is different between
-  implementations (this is expected & in line with the spec)."
-  [xs]
-  (interpose "," (sort xs)))
-
-(defn born-in-year [born-date-string yyyy-string]
-  (string/starts-with? born-date-string yyyy-string))
-
-;; end helpers
-
 (def cases
   "Each case is a map containing :name, :query & :inputs.
   Cases are executed for datomic, datascript & yadat. Results are validated by
@@ -101,6 +88,12 @@
     :query '{:find [?surname]
              :where [[?id :surname ?surname]
                      [(clojure.string/starts-with? ?surname "Ein")]]}
+    :inputs-fn (fn [db] [db])}
+
+   {:name "function"
+    :query '{:find [?upper-surname]
+             :where [[?id :surname ?surname]
+                     [(clojure.string/upper-case ?surname) ?upper-surname]]}
     :inputs-fn (fn [db] [db])}
 
    {:name "aggregate"
@@ -117,7 +110,8 @@
                      [?prize-id :year "2003"]]}
     :inputs-fn (fn [db] [db])}
 
-   {:name "custom predicate"
+   ;; TODO resolve only works in clj!
+   {:name "custom predicate (resolve)"
     :query '{:find [?firstname ?born-date]
              :where [[?id :firstname ?firstname]
                      [?id :born ?born-date]
@@ -131,7 +125,29 @@
                      [?id :surname ?surname]]}
     :inputs-fn (fn [db] [db])}
 
+   {:name "without db"
+    :query '{:find [?celsius]
+             :in [?fahrenheit]
+             :where [[(- ?fahrenheit 32) ?f-32]
+                     [(/ ?f-32 1.8) ?celsius]]}
+    :inputs-fn (fn [db] [212])}
+
+   {:name "monsters"
+    :query '{:find [(sum ?heads) .]
+             :with [?monster]
+             :in [[[?monster ?heads]]]}
+    :inputs-fn (fn [db] [["Cerberus" 3]
+                         ["Medusa" 1]
+                         ["Cyclops" 1]
+                         ["Chimera" 1]])}
    ])
+
+
+(defn sorted-interpose [xs]
+  (interpose "," (sort xs)))
+
+(defn born-in-year [born-date-string yyyy-string]
+  (string/starts-with? born-date-string yyyy-string))
 
 (defn run-case
   [{:keys [q db] :as engine} {:keys [name query inputs-fn] :as case}]
@@ -160,9 +176,11 @@
 (deftest integration-test
   (run-cases datomic [datascript yadat] cases))
 
-(run-case yadat (first (filter #(= (:name %) "custom aggregate") cases)))
-(run-case datomic (first (filter #(= (:name %) "custom aggregate") cases)))
+
+(run-case yadat (first (filter #(= (:name %) "monsters") cases)))
 (comment
+  (run-case yadat (first (filter #(= (:name %) "custom aggregate") cases)))
+  (run-case datomic (first (filter #(= (:name %) "custom aggregate") cases)))
 
   #_(defmacro timed [& body]
       `(do
@@ -170,10 +188,6 @@
                result# (do ~@body)
                time# (/ (double (- (. System (nanoTime)) start#)) 1000000.0)]
            {:result result# :time time#})))
-
-
-  ;; function & custom function
-  nil
 
   ;; rules
   nil
@@ -295,26 +309,7 @@
     [?a2 :artist/name ?artist-name-2]]
 
    ]
-
-
-  (d/q '[:find ?track-name ?minutes
-         :in $ ?artist-name
-         :where [?artist :artist/name ?artist-name]
-         [?track :track/artists ?artist]
-         [?track :track/duration ?millis]
-         [(quot ?millis 60000) ?minutes]
-         [?track :track/name ?track-name]]
-       db "John Lennon")
-
-  (d/q '[:find ?celsius .
-         :in ?fahrenheit
-         :where [(- ?fahrenheit 32) ?f-32]
-         [(/ ?f-32 1.8) ?celsius]]
-       212)
-
-
-
-  ;; fixes previous query
+;; fixes previous query
   (d/q '[:find (sum ?heads) .
          :with ?monster
          :in [[?monster ?heads]]]

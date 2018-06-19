@@ -1,3 +1,5 @@
+pullMap still unimplemented
+
 
 get-else https://stackoverflow.com/questions/21101259/find-entities-with-missing-attributes-in-datomic
 ;; https://github.com/Datomic/day-of-datomic/blob/master/tutorial/datalog_on_defrecords.clj

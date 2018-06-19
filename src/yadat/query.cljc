@@ -150,20 +150,22 @@
     value)
 
   yadat.dsl.InputScalar
-  (resolve-input [this value]
-    (r/relation #{(:var this)} #{value}))
+  (resolve-input [{:keys [var]} value]
+    (r/relation #{var} #{{var value}}))
 
   yadat.dsl.InputTuple
-  (resolve-input [this value]
-    (r/relation (set (:vars this)) #{value}))
+  (resolve-input [{:keys [vars]} tuple]
+    (let [rows (apply hash-map (interleave vars tuple))]
+      (r/relation (set vars) (set rows))))
 
   yadat.dsl.InputCollection
-  (resolve-input [this value]
-    (r/relation #{(:var this)} (set value)))
+  (resolve-input [{:keys [var]} values]
+    (r/relation #{var} (set (map (fn [v] {var v}) values))))
 
   yadat.dsl.InputRelation
-  (resolve-input [this value]
-    (r/relation (set (:vars this)) (set value))))
+  (resolve-input [{:keys [vars]} tuples]
+    (r/relation (set vars)
+                (set (map #(apply hash-map (interleave vars %)) tuples)))))
 
 (extend-protocol IInputs
   yadat.dsl.Inputs
@@ -173,11 +175,15 @@
           {relations true dbs false} (group-by predicate inputs)]
       [dbs relations])))
 
+
+(resolve-input (dsl/->InputRelation [:a :b]) [[1 2]])
+
 (defn resolve-query [form input-values]
   (let [query (dsl/query form)
         variables (set (concat (dsl/vars (:find query))
                                (dsl/vars (:with query))))
         [dbs relations] (resolve-inputs (:in query) input-values)
+        x (prn relations)
         tuples (->> (resolve-clause (:where query) dbs relations)
                     (r/merge r/inner-join)
                     (:rows)

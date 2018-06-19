@@ -12,6 +12,9 @@
 (def built-ins
   {'avg (fn avg [xs] (/ (reduce + xs) (count xs)))
    'sum (fn sum [xs] (reduce + xs))
+   '- -
+   '+ +
+   '/ /
    'count count
    'count-distinct (fn count-distinct [xs] (count (distinct xs)))
    'distinct distinct
