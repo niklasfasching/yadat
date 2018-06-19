@@ -4,7 +4,8 @@
             [yadat.db.minimal]
             [yadat.db.sorted-set]
             [yadat.util :as util]
-            [yadat.query :as query]
+            [yadat.dsl :as dsl]
+            [yadat.dsl.query]
             [yadat.relation :as r]
             [yadat.pull :as pull]))
 

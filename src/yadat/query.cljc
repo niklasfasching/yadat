@@ -34,18 +34,39 @@
                      (apply f (concat args [(map #(nth % i) tuples)]))
                      v)) tuple (range))) groups)))
 
-(extend-protocol dsl/IClause
+(defprotocol IQuery
+  (resolve-query [this inputs relations]))
+
+(defprotocol IRules
+  (resolve-rules [this dbs relations]))
+
+(defprotocol IRule
+  (resolve-rule [this dbs relations]))
+
+(defprotocol IInput
+  (resolve-input [this value]))
+
+(defprotocol IFindElement
+  (resolve-find-element [this dbs row]))
+
+(defprotocol IFindSpec
+  (resolve-find-spec [this dbs rows]))
+
+(defprotocol IClause
+  (resolve-clause [this dbs relations]))
+
+(extend-protocol IClause
   yadat.dsl.AndClause
   (resolve-clause [{:keys [clauses]} dbs relations]
     (loop [[clause & clauses] clauses
            relations relations]
       (if (and (nil? clause) (nil? clauses))
         relations
-        (recur clauses (dsl/resolve-clause clause dbs relations)))))
+        (recur clauses (resolve-clause clause dbs relations)))))
 
   yadat.dsl.OrClause
   (resolve-clause [{:keys [clauses]} dbs relations]
-    (let [f (fn [clause] (dsl/resolve-clause clause dbs relations))
+    (let [f (fn [clause] (resolve-clause clause dbs relations))
           out-relations (mapcat f clauses)
           or-relations (remove (set relations) out-relations)
           or-relation (r/merge r/union or-relations)]
@@ -54,7 +75,7 @@
   yadat.dsl.NotClause
   (resolve-clause [{:keys [clauses]} dbs relations]
     (let [and-clause (dsl/->AndClause clauses)
-          out-relations (dsl/resolve-clause and-clause dbs relations)
+          out-relations (resolve-clause and-clause dbs relations)
           not-relations (remove (set relations) out-relations)
           not-relation (r/merge r/inner-join not-relations)
           [relations relation] (r/split (:columns not-relation) relations)
@@ -90,7 +111,7 @@
           relation (r/relation (vals index) rows)]
       (conj relations relation))))
 
-(extend-protocol dsl/IFindElement
+(extend-protocol IFindElement
   yadat.dsl.FindVariable
   (resolve-find-element [{:keys [var]} dbs row]
     (get row var))
@@ -98,25 +119,25 @@
   yadat.dsl.FindPull
   (resolve-find-element [{:keys [pattern var]} dbs row]
     (let [db (first dbs)] ;; TODO
-      (dsl/resolve-pull-pattern pattern db (get row var))))
+      (pull/resolve-pull-pattern pattern db (get row var))))
 
   yadat.dsl.FindAggregate
   (resolve-find-element [{:keys [args]} dbs row]
     (some #(if (util/var? %) (get row %)) args)))
 
-(extend-protocol dsl/IFindSpec
+(extend-protocol IFindSpec
   yadat.dsl.FindScalar
   (resolve-find-spec [{:keys [element]} dbs rows]
-    (dsl/resolve-find-element element dbs (first rows)))
+    (resolve-find-element element dbs (first rows)))
 
   yadat.dsl.FindTuple
   (resolve-find-spec [{:keys [elements]} dbs rows]
-    (mapv #(dsl/resolve-find-element % dbs (first rows)) elements))
+    (mapv #(resolve-find-element % dbs (first rows)) elements))
 
   yadat.dsl.FindRelation
   (resolve-find-spec [{:keys [elements]} dbs rows]
     (let [tuples (map (fn [row]
-                        (mapv #(dsl/resolve-find-element % dbs row) elements))
+                        (mapv #(resolve-find-element % dbs row) elements))
                       rows)]
       (if (some #(instance? yadat.dsl.FindAggregate %) elements)
         (aggregate elements tuples)
@@ -124,12 +145,12 @@
 
   yadat.dsl.FindCollection
   (resolve-find-spec [{:keys [element]} dbs rows]
-    (let [values (map #(dsl/resolve-find-element element dbs %) rows)]
+    (let [values (map #(resolve-find-element element dbs %) rows)]
       (if (instance? yadat.dsl.FindAggregate element)
         (aggregate [element] (map vector values))
         values))))
 
-(extend-protocol dsl/IInput
+(extend-protocol IInput
   yadat.dsl.InputSource
   (resolve-input [this value]
     value)
@@ -150,22 +171,18 @@
   (resolve-input [this value]
     (r/relation (set (:vars this)) (set value))))
 
-(extend-protocol dsl/IInputs
-  yadat.dsl.Inputs
-  (resolve-inputs [this values]
-    (let [inputs (map dsl/resolve-input (:inputs this) values)
-          groups (group-by #(= (type %) yadat.relation.Relation) inputs)]
-      [(get groups true) (get groups false)])))
-
 (extend-protocol dsl/IQuery
   yadat.dsl.Query
-  (resolve-query [this inputs]
+  (resolve-query [this input-values]
     (let [variables (set (concat (dsl/vars (:find this))
                                  (dsl/vars (:with this))))
-          [dbs relations] (dsl/resolve-inputs (:in query) inputs)
-          tuples (->> (dsl/resolve-clause (:where this) dbs relations)
+          inputs (map resolve-input (:inputs this) input-values)
+          {relations true dbs false} (group-by
+                                      #(= (type %) yadat.relation.Relation)
+                                      inputs)
+          tuples (->> (resolve-clause (:where this) dbs relations)
                       (r/merge r/inner-join)
                       (:rows)
                       (map #(select-keys % variables))
                       (set))]
-      (dsl/resolve-find-spec (:find this) dbs tuples))))
+      (resolve-find-spec (:find this) dbs tuples))))

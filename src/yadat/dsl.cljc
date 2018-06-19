@@ -18,36 +18,6 @@
 (defprotocol IVariableContainer
   (vars [this]))
 
-(defprotocol IQuery
-  (resolve-query [this inputs relations]))
-
-(defprotocol IRules
-  (resolve-rules [this dbs relations]))
-
-(defprotocol IRule
-  (resolve-rule [this dbs relations]))
-
-(defprotocol IInput
-  (resolve-input [this value]))
-
-(defprotocol IInputs
-  (resolve-inputs [this values]))
-
-(defprotocol IFindElement
-  (resolve-find-element [this dbs row]))
-
-(defprotocol IFindSpec
-  (resolve-find-spec [this dbs rows]))
-
-(defprotocol IClause
-  (resolve-clause [this dbs relations]))
-
-(defprotocol IPullPattern
-  (resolve-pull-pattern [this db eid]))
-
-(defprotocol IPullElement
-  (resolve-pull-element [this db entity]))
-
 (defrecord Query [find where in with])
 
 (defrecord Rules [rules]
@@ -180,7 +150,6 @@
 
 (defn where-clauses [form]
   (->AndClause (map where-clause form)))
-
 
 ;; The pull expression pattern can also be bound dynamically as an :in parameter to query:
 (defn find-element [form]

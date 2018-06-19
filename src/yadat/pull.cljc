@@ -30,17 +30,22 @@
         datoms (take (or limit default-pull-limit) (db/select db query-datom))]
     datoms))
 
+(defprotocol IPullPattern
+  (resolve-pull-pattern [this db eid]))
 
-(extend-protocol dsl/IPullPattern
+(defprotocol IPullElement
+  (resolve-pull-element [this db entity]))
+
+(extend-protocol IPullPattern
   yadat.dsl.PullPattern
   (resolve-pull-pattern [{:keys [elements]} db eid]
     (loop [entity {:db/id eid}
            [e & es] elements]
       (if (and (nil? e) (nil? es))
         entity
-        (recur (dsl/resolve-pull-element e db entity) es)))))
+        (recur (resolve-pull-element e db entity) es)))))
 
-(extend-protocol dsl/IPullElement
+(extend-protocol IPullElement
   yadat.dsl.PullWildcard
   (resolve-pull-element [_ db entity]
     (let [datoms (db/select db [(:db/id entity) nil nil])]
@@ -59,11 +64,11 @@
   yadat.dsl.PullMap
   (resolve-pull-element [{:keys [m]} db entity]
     (let [[raw-spec pattern] (first (seq m))
-          resolve (fn [eid] (dsl/resolve-pull-pattern pattern db eid))
+          resolve (fn [eid] (resolve-pull-pattern pattern db eid))
           spec (if (keyword? raw-spec)
                  [raw-spec :resolve resolve]
                  (concat raw-spec [:resolve resolve]))]
-      (dsl/resolve-pull-element spec db entity)))
+      (resolve-pull-element spec db entity)))
 
   yadat.dsl.PullAttributeWithOptions
   (resolve-pull-element [{:keys [a options]} db entity]
@@ -76,4 +81,4 @@
                                            {:db db} eid)
                   (db/real-eid? db eid) [nil eid]
                   :else (throw (ex-info "Invalid eid" {:eid eid})))]
-    (dsl/resolve-pull-pattern (dsl/pull-pattern pattern) db eid)))
+    (resolve-pull-pattern (dsl/pull-pattern pattern) db eid)))
