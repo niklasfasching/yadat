@@ -119,8 +119,6 @@
   IVariableContainer
   (vars [this] vars))
 
-(def var? util/var?)
-(def src? util/var?)
 (def vars? (partial every? util/var?))
 
 (defn parse-pull-element [form]
@@ -147,31 +145,31 @@
     [(['or & clauses] :seq)]
     (->OrClause nil (map parse-clause clauses))
 
-    [(['or (src :guard src?) & clauses] :seq)]
+    [(['or (src :guard util/src?) & clauses] :seq)]
     (->OrClause src (map parse-clause clauses))
 
     [(['or-join [& (vars :guard vars?)] & clauses] :seq)]
     (->OrJoinClause nil vars (map parse-clause clauses))
 
-    [(['or-join (src :guard src?) [& (vars :guard vars?)] & clauses] :seq)]
+    [(['or-join (src :guard util/src?) [& (vars :guard vars?)] & clauses] :seq)]
     (->OrJoinClause src vars (map parse-clause clauses))
 
     [(['not & clauses] :seq)]
     (->NotClause nil (map parse-clause clauses))
 
-    [(['not (src :guard src?) & clauses] :seq)]
+    [(['not (src :guard util/src?) & clauses] :seq)]
     (->NotClause src (map parse-clause clauses))
 
     [(['not-join [& vars] & clauses] :seq)]
     (->NotJoinClause nil vars (map parse-clause clauses))
 
-    [(['not-join (src :guard src?) [& vars] & clauses] :seq)]
+    [(['not-join (src :guard util/src?) [& vars] & clauses] :seq)]
     (->NotJoinClause src vars (map parse-clause clauses))
 
     [(['and & clauses] :seq)]
     (->AndClause nil (map parse-clause clauses))
 
-    [(['and (src :guard src?) & clauses] :seq)]
+    [(['and (src :guard util/src?) & clauses] :seq)]
     (->AndClause src (map parse-clause clauses))
 
     [[([(f :guard symbol?) & args] :seq)]]
@@ -180,7 +178,7 @@
     [[([(f :guard symbol?) & args] :seq) & (vars :guard vars?)]]
     (->FunctionClause f args vars)
 
-    [[(src :guard src?) _ _ _]]
+    [[(src :guard util/src?) _ _ _]]
     (->PatternClause src form)
 
     [[_ & _]]
@@ -191,14 +189,14 @@
 ;; The pull expression pattern can also be bound dynamically as an :in parameter to query:
 (defn parse-find-element [form]
   (match [form]
-    [(v :guard var?)]
+    [(v :guard util/var?)]
     (->FindVariable v)
 
-    [(['pull (v :guard var?) [& pattern]] :seq)]
-    (->FindPull v (parse-pull-pattern nil pattern))
+    [(['pull (v :guard util/var?) pattern] :seq)]
+    (->FindPull nil v pattern)
 
-    [(['pull (src :guard src?) (v :guard var?) [& pattern]] :seq)]
-    (->FindPull v (parse-pull-pattern src pattern))
+    [(['pull (src :guard util/src?) (v :guard util/var?) pattern] :seq)]
+    (->FindPull src v pattern)
 
     [([f & args] :seq)]
     (->FindAggregate f args)
@@ -226,22 +224,22 @@
 (defn parse-rules [form]
   (->Rules (map parse-rule form)))
 
-(defn input [form]
+(defn parse-input [form]
   (match [form]
-    [(v :guard src?)] (->InputSource v)
-    [(v :guard var?)] (->InputScalar v)
+    [(v :guard util/src?)] (->InputSource v)
+    [(v :guard util/var?)] (->InputScalar v)
     [[[& vs]]] (->InputRelation vs)
     [[v '...]] (->InputCollection v)
     [[& vs]] (->InputTuple vs)
     :else (throw (ex-info "Invalid input definition" {:input form}))))
 
-(defn query [form]
+(defn parse-query [form]
   (if-let [parsed-query (get cache form)]
     parsed-query
     (let [parsed-query (->Query
                         (parse-find-spec (:find form))
-                        (->AndClause (map parse-clause (:where form)))
-                        (->Inputs (map (:in form) (or form '[$])))
+                        (->AndClause nil (map parse-clause (:where form)))
+                        (->Inputs (map parse-input (or (:in form) '[$])))
                         (->With (:with form)))]
       ;; TODO validate query
       (swap! cache update-cache form parsed-query)

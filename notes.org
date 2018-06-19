@@ -1,5 +1,17 @@
+scalar can also be an aggregate! cannot just look at the first -
+-> need to take into account whether aggregate!
+
+
 pullMap still unimplemented
 
+as pull-pattern and fns and stuff can be bound via inputs have to carry those around to
+- resolve-find-spec (FindPull, FindAggregate)
+- resolve-clause (FunctionClause, PredicateClause)
+
+-> rather than dbs the thingy could be sources!
+-> sources are either raw values or dbs
+-> if source not found for db take default source (get sources x *default-source*)
+-> for fn resolution
 
 get-else https://stackoverflow.com/questions/21101259/find-entities-with-missing-attributes-in-datomic
 ;; https://github.com/Datomic/day-of-datomic/blob/master/tutorial/datalog_on_defrecords.clj

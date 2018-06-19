@@ -136,10 +136,10 @@
     :query '{:find [(sum ?heads) .]
              :with [?monster]
              :in [[[?monster ?heads]]]}
-    :inputs-fn (fn [db] [["Cerberus" 3]
-                         ["Medusa" 1]
-                         ["Cyclops" 1]
-                         ["Chimera" 1]])}
+    :inputs-fn (fn [db] [[["Cerberus" 3]
+                          ["Medusa" 1]
+                          ["Cyclops" 1]
+                          ["Chimera" 1]]])}
    ])
 
 
@@ -178,6 +178,7 @@
 
 
 (run-case yadat (first (filter #(= (:name %) "monsters") cases)))
+
 (comment
   (run-case yadat (first (filter #(= (:name %) "custom aggregate") cases)))
   (run-case datomic (first (filter #(= (:name %) "custom aggregate") cases)))
