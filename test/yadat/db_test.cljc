@@ -111,3 +111,59 @@
 (deftest transact-test
   ;; TODO
   )
+
+(deftest test-with
+  (let [db (db/open :minimal {:comments [:many]})
+        [{:keys [db]}] (db/transact db [[:db/add 1 :name "A"]
+                                        [:db/add 1 :name "B"]
+                                        [:db/add 1 :comments "x"]
+                                        [:db/add 1 :comments "y"]])]
+    (is (= (db/select db [1 nil nil])
+           #{["Petr"]}))
+    #_(is (= (d/q '[:find ?v
+                  :where [1 :aka ?v]] db)
+           #{["Devil"] ["Tupen"]}))
+
+    (testing "Retract"
+      (let [db  (-> db
+                    (d/db-with [[:db/retract 1 :name "Petr"]])
+                    (d/db-with [[:db/retract 1 :aka  "Devil"]]))]
+
+        (is (= (d/q '[:find ?v
+                      :where [1 :name ?v]] db)
+               #{}))
+        (is (= (d/q '[:find ?v
+                      :where [1 :aka ?v]] db)
+               #{["Tupen"]}))
+
+        (is (= (into {} (d/entity db 1)) { :aka #{"Tupen"} }))))
+
+    #_(testing "Cannot retract what's not there"
+      (let [db  (-> db
+                    (d/db-with [[:db/retract 1 :name "Ivan"]]))]
+        (is (= (d/q '[:find ?v
+                      :where [1 :name ?v]] db)
+               #{["Petr"]})))))
+
+  #_(testing "Skipping nils in tx"
+    (let [db (-> (d/empty-db)
+                 (d/db-with [[:db/add 1 :attr 2]
+                             nil
+                             [:db/add 3 :attr 4]]))]
+      (is (= [[1 :attr 2], [3 :attr 4]]
+             (map (juxt :e :a :v) (d/datoms db :eavt)))))))
+
+
+(let [db (db/open :minimal {:comments [:many]})
+      [{:keys [db]}] (db/transact db [[:db/add 1 :name "A"]
+                                      [:db/add 1 :name "B"]
+                                      [:db/add 1 :comments "x"]
+                                      [:db/add 1 :comments "y"]])]
+  db
+
+  (testing "Retract"
+    (let [db (db/transact db [[:db/retract 1 :name "B"]
+                              [:db/retract 1 :comments "y"]])]
+
+      db))
+  )

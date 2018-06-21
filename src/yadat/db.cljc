@@ -116,6 +116,14 @@
     (reverse-ref? a) [v (reversed-ref a) e]
     :else [e a v]))
 
+(defn retract-datom [db datom]
+  (-> (delete db (first (select db datom)))))
+
+(defn add-datom [db [eid a v :as datom]]
+  (if (is? db a :many)
+    (insert db datom)
+    (insert (retract-datom db [eid a]) datom)))
+
 (defn store-entity
   "Store entity of `db-id` and `avs` in `db`. Returns [transaction eid].
   The eid can be one of the following:
@@ -130,10 +138,7 @@
       (cond
         empty-entity? [transaction nil]
         (and (nil? a) (nil? avs)) [(assoc transaction :db db) eid]
-        (is? db a :many) (recur (insert db (datom db eid a v)) avs)
-        :else (let [db (-> (delete db (first (select db [eid a])))
-                           (insert (datom db eid a v)))]
-                (recur db avs))))))
+        :else (recur (add-datom db (datom db eid a v)) avs)))))
 
 (defn add-entity
   "Add entity `e` to the `db` of `transaction`. Returns [transaction eid].
@@ -161,16 +166,23 @@
         :else (recur t raw-avs (conj avs [a v]))))))
 
 (defn transact
-  "Add entities `es` to the `db`. Returns [transaction eids].
+  "Add `entities` to the `db`. Returns [transaction eids].
   transaction is a map containing db & temp-eids - temp-eids
   being a map of [temp-eid real-eid].
-  eids are the ids of the entities `es` in the `db` - be they newly added or
+  eids are the ids of the `entities` in the `db` - be they newly added or
   existing entities that were updated."
-  [db es]
+  [db entities]
   (loop [transaction {:db db :temp-eids {}}
-         [e & es] es
-         eids []]
-    (if (and (nil? e) (nil? es))
-      [transaction eids]
-      (let [[transaction eid] (add-entity transaction e)]
-        (recur transaction es (conj eids eid))))))
+         [e & es] entities
+         eids #{}]
+    (cond
+      (and (nil? e) (nil? es)) [transaction eids]
+      (map? e) (let [[transaction eid] (add-entity transaction e)]
+                 (recur transaction es (conj eids eid)))
+      (sequential? e) (let [[op eid a v] e
+                            datom (datom db eid a v)
+                            f (fn [db] (case op
+                                         :db/add (add-datom db datom)
+                                         :db/retract (retract-datom db datom)))
+                            transaction (update-in transaction [:db] f)]
+                        (recur transaction es (conj eids eid))))))

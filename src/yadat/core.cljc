@@ -5,7 +5,6 @@
             [yadat.db.sorted-set]
             [yadat.util :as util]
             [yadat.query :as query]
-            [yadat.relation :as r]
             [yadat.pull :as pull]))
 
 (defn insert
@@ -50,7 +49,3 @@
   See `clojure.java.io/writer` for a list of supported values for `f`."
   [db f]
   (clojure.core/spit f (db/serialize @db)))
-
-(defn db-with [connection datoms]
-  (swap! connection
-         (fn [db] (reduce (fn [db datom] (db/insert db datom)) db datoms))))

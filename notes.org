@@ -5,8 +5,12 @@
 
 pullMap still unimplemented
 
+
 get-else https://stackoverflow.com/questions/21101259/find-entities-with-missing-attributes-in-datomic
 ;; https://github.com/Datomic/day-of-datomic/blob/master/tutorial/datalog_on_defrecords.clj
+* schema alteration
+- datomic alters schema via transactions, attributes are in the db and datoms contain attribute id rather than attribute
+how do i want to do that?
 * ToDo
 - make tests cljs compatible
 - implement rules
