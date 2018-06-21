@@ -1,7 +1,8 @@
+need to lookup stuff from relations sometimes
+
 problem with passing in non-relation variables
 currently i resolve everything into a relation that's not a db
 that leads to a problem when the value is actually used as a predicate..
-
 
 -> more testing, rules
 -> persistence? already have serialize / deserialize...

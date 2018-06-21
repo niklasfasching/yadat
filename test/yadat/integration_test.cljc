@@ -179,17 +179,12 @@
 
 (run-case datascript (first (filter #(= (:name %) "custom aggregate") cases)))
 
-
-
-
-(run-case yadat {:query '{:find [?b]
-                          :in [$ ?predicate]
+(run-case yadat {:query '{:find [(?sum ?b)]
+                          :in [$ ?predicate ?sum]
                           :where [[?a :year ?b]
                                   [(?predicate ?b)]]
                           }
-                 :inputs-fn (fn [db] [db #(= "1997" %)])})
-
-
+                 :inputs-fn (fn [db] [db #(re-find #"199" %) #(first %)])})
 
 (comment
   (run-case yadat (first (filter #(= (:name %) "custom aggregate") cases)))
