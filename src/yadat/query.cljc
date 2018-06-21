@@ -16,9 +16,7 @@
                      (into r [[(first raw-vars) result]])
                      (into r (map vector result raw-vars))))) rows)))
 
-(defn apply-predicate [rows raw-f raw-args]
-  (let [f (util/resolve-symbol raw-f)]
-    (filter (fn [b] (apply f (mapv #(get b % %) raw-args))) rows)))
+
 
 (defn aggregate-tuples [elements tuples]
   (let [template (first tuples)]
@@ -100,11 +98,15 @@
       (conj relations relation)))
 
   yadat.dsl.PredicateClause
-  (resolve-clause [{:keys [args f]} sources relations]
+  (resolve-clause [{:keys [f args]} sources relations]
     (let [[relations relation] (r/split (filter util/var? args) relations)
-          rows (apply-predicate (:rows relation) f args)
-          relation (r/relation (:columns relation) rows)]
-      (conj relations relation)))
+          x (prn (keys sources) f)
+          resolved-f (or (get sources f) (util/resolve-symbol f))
+          filtered-rows (filter (fn [row]
+                                  (let [args (map #(get row % %) args)]
+                                    (apply resolved-f args))) (:rows relation))
+          filtered-relation (r/relation (:columns relation) filtered-rows)]
+      (conj relations filtered-relation)))
 
   yadat.dsl.PatternClause
   (resolve-clause [{:keys [src pattern]} sources relations]
@@ -156,7 +158,7 @@
 (extend-protocol IInput
   yadat.dsl.InputSource
   (resolve-input [{:keys [src]} value]
-    {src value})
+    nil)
 
   yadat.dsl.InputScalar
   (resolve-input [{:keys [var]} value]
@@ -178,11 +180,14 @@
 
 (extend-protocol IInputs
   yadat.dsl.Inputs
-  (resolve-inputs [this values]
-    (let [inputs (map resolve-input (:inputs this) values)
-          predicate (fn [x] (= (type x) yadat.relation.Relation))
-          {relations true sources false} (group-by predicate inputs)]
-      [(apply merge sources) relations])))
+  (resolve-inputs [{:keys [inputs]} values]
+    (let [relations (remove nil? (map resolve-input inputs values))
+          sources (reduce-kv (fn [sources i input]
+                               (if (or (instance? yadat.dsl.InputScalar input)
+                                       (instance? yadat.dsl.InputSource input))
+                                 (assoc sources (first (vals input)) (nth values i))
+                                 sources)) {} (vec inputs))]
+      [sources relations])))
 
 (defn resolve-query [form input-values]
   (let [query (dsl/parse-query form)
