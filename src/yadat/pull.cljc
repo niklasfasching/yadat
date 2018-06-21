@@ -9,7 +9,8 @@
     (and (db/reverse-ref? a) f) (f e)
     (db/reverse-ref? a) {:db/id e}
     f (f v)
-    (db/is? db a :component) (f (dsl/->PullWildcard) db {:db/id v})
+    (db/is? db a :component) (resolve-pull-element
+                              (dsl/->PullWildcard) db {:db/id v})
     (db/is? db a :reference) {:db/id v}
     :else v))
 

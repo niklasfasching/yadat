@@ -137,8 +137,8 @@
 
     :else (throw (ex-info "Invalid pull element" {:element form}))))
 
-(defn parse-pull-pattern [src form]
-  (->PullPattern src (map parse-pull-element form)))
+(defn parse-pull-pattern [form]
+  (->PullPattern (map parse-pull-element form)))
 
 (defn parse-clause [form]
   (match [form]

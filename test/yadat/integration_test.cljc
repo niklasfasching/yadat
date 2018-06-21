@@ -186,6 +186,15 @@
                           }
                  :inputs-fn (fn [db] [db #(re-find #"199" %) #(first %)])})
 
+(run-case yadat {:query '{:find [(pull ?id ?pattern)]
+                                    :in [$ ?pattern]
+                                    :where [[?id :year "1990"]]
+                                    }
+                 :inputs-fn (fn [db] [db '[*]])})
+
+;; everything still x100 slower than datascript, and even more compared to
+;; datomic ...
+
 (comment
   (run-case yadat (first (filter #(= (:name %) "custom aggregate") cases)))
   (run-case datomic (first (filter #(= (:name %) "custom aggregate") cases)))

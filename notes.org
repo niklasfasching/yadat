@@ -1,24 +1,9 @@
-need to lookup stuff from relations sometimes
-
-problem with passing in non-relation variables
-currently i resolve everything into a relation that's not a db
-that leads to a problem when the value is actually used as a predicate..
-
 -> more testing, rules
--> persistence? already have serialize / deserialize...
+- validate default-src correct for nested clauses
 
 -> use it for a scraper, i.e. put data in there!
 
 pullMap still unimplemented
-
-as pull-pattern and fns and stuff can be bound via inputs have to carry those around to
-- resolve-find-spec (FindPull, FindAggregate)
-- resolve-clause (FunctionClause, PredicateClause)
-
--> rather than dbs the thingy could be sources!
--> sources are either raw values or dbs
--> if source not found for db take default source (get sources x *default-source*)
--> for fn resolution
 
 get-else https://stackoverflow.com/questions/21101259/find-entities-with-missing-attributes-in-datomic
 ;; https://github.com/Datomic/day-of-datomic/blob/master/tutorial/datalog_on_defrecords.clj
@@ -122,6 +107,7 @@ generic rss, i.e. rss OR scrape rule
 -> this generalizes the wg-gesucht scraper & rss feed and stuff
 -> hooks to act on new feed items, e.g. send telegram message, reply to ad, ...
 * limitations
+- pull pattern from input must be a variable, i.e. a symbol starting with ? - cannot use just any symbol as in datascript/datomic
 - no fixed schema and no valueTypes. everything is dynamic. values are added as simple value, cardinality-1 by default
   only attributes for which something else should be done need to be defined in the schema
 - no schema migrations

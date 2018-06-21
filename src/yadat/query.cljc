@@ -131,7 +131,7 @@
   yadat.dsl.FindPull
   (resolve-find-element [{:keys [src var pattern]} sources row]
     (let [db (get sources src *default-source*)
-          pattern (get sources pattern pattern)]
+          pattern (dsl/parse-pull-pattern (get sources pattern pattern))]
       (pull/resolve-pull-pattern pattern db (get row var))))
 
   yadat.dsl.FindAggregate
@@ -202,4 +202,5 @@
            (:rows)
            (map #(select-keys % variables))
            (set)
-           (resolve-find-spec (:find query) sources)))))
+           (resolve-find-spec (:find query) sources)
+           (vec)))))
