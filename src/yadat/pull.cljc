@@ -4,6 +4,12 @@
 
 (def default-pull-limit 1000)
 
+(defprotocol IPullPattern
+  (resolve-pull-pattern [this db eid]))
+
+(defprotocol IPullElement
+  (resolve-pull-element [this db entity]))
+
 (defn datom->value [db f [e a v :as datom]]
   (cond
     (and (db/reverse-ref? a) f) (f e)
@@ -30,12 +36,6 @@
                       [(:db/id entity) a nil])
         datoms (take (or limit default-pull-limit) (db/select db query-datom))]
     datoms))
-
-(defprotocol IPullPattern
-  (resolve-pull-pattern [this db eid]))
-
-(defprotocol IPullElement
-  (resolve-pull-element [this db entity]))
 
 (extend-protocol IPullPattern
   yadat.dsl.PullPattern

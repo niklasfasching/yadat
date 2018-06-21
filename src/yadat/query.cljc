@@ -8,6 +8,21 @@
 
 (def ^:dynamic *default-source* nil)
 
+(defprotocol IInput
+  (resolve-input [this value]))
+
+(defprotocol IInputs
+  (resolve-inputs [this values]))
+
+(defprotocol IFindElement
+  (resolve-find-element [this sources row]))
+
+(defprotocol IFindSpec
+  (resolve-find-spec [this sources rows]))
+
+(defprotocol IClause
+  (resolve-clause [this sources relations]))
+
 (defn apply-function [rows raw-f raw-args raw-vars]
   (let [f (util/resolve-symbol raw-f)]
     (map (fn [r] (let [args (mapv #(get r % %) raw-args)
@@ -45,21 +60,6 @@
 (defn resolve-var [var relations]
   (if-let [{:keys [rows]} (some #(#{var} (:columns %)) relations)]
     (get (first rows) var)))
-
-(defprotocol IInput
-  (resolve-input [this value]))
-
-(defprotocol IInputs
-  (resolve-inputs [this values]))
-
-(defprotocol IFindElement
-  (resolve-find-element [this sources row]))
-
-(defprotocol IFindSpec
-  (resolve-find-spec [this sources rows]))
-
-(defprotocol IClause
-  (resolve-clause [this sources relations]))
 
 (extend-protocol IClause
   yadat.dsl.AndClause
@@ -149,12 +149,12 @@
 
   yadat.dsl.FindRelation
   (resolve-find-spec [{:keys [elements]} sources rows]
-    (resolve-tuples elements sources rows))
+    (vec (resolve-tuples elements sources rows)))
 
   yadat.dsl.FindCollection
   (resolve-find-spec [{:keys [element]} sources rows]
     (let [tuples (resolve-tuples [element] sources rows)]
-      (map first tuples))))
+      (mapv first tuples))))
 
 (extend-protocol IInput
   yadat.dsl.InputSource
@@ -202,5 +202,4 @@
            (:rows)
            (map #(select-keys % variables))
            (set)
-           (resolve-find-spec (:find query) sources)
-           (vec)))))
+           (resolve-find-spec (:find query) sources)))))
