@@ -1,6 +1,7 @@
-scalar can also be an aggregate! cannot just look at the first -
--> need to take into account whether aggregate!
+-> more testing, rules
+-> persistence? already have serialize / deserialize...
 
+-> use it for a scraper, i.e. put data in there!
 
 pullMap still unimplemented
 

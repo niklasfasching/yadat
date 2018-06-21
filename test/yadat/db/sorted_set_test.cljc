@@ -31,11 +31,11 @@
   )
 
 (deftest delete-test
-  (let [datom1 [1 :user/name "foo"]
-        datom2 [1 :user/email "foo@example.com"]
+  (let [datom1 [1 :name "foo"]
+        datom2 [1 :email "foo@example.com"]
         db (-> (db/open :sorted-set {})
                (db/insert datom1)
                (db/insert datom2))
         db (db/delete db datom1)]
-    (is (= [] (db/select db datom1)))
-    (is (= [datom2] (db/select db datom2)))))
+    (is (= (db/select db datom1) []))
+    (is (= (db/select db datom2) [datom2]))))

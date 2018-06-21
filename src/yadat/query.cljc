@@ -20,21 +20,31 @@
   (let [f (util/resolve-symbol raw-f)]
     (filter (fn [b] (apply f (mapv #(get b % %) raw-args))) rows)))
 
-(defn aggregate [elements tuples]
-  (let [aggregate-idx (reduce-kv (fn [m i e]
-                                   (if (instance? yadat.dsl.FindAggregate e)
-                                     (let [f (util/resolve-symbol (:f e))
-                                           constant-args (butlast (:args e))]
-                                       (assoc m i [f constant-args]))
-                                     m)) {} (vec elements))
-        group-indexes (set/difference (set (range (count elements)))
-                                      (set (keys aggregate-idx)))
-        groups (vals (group-by #(map (partial nth %) group-indexes) tuples))]
-    (map (fn [[tuple :as tuples]]
-           (mapv (fn [v i]
-                   (if-let [[f args] (get aggregate-idx i)]
-                     (apply f (concat args [(map #(nth % i) tuples)]))
-                     v)) tuple (range))) groups)))
+(defn aggregate-tuples [elements tuples]
+  (let [template (first tuples)]
+    (mapv (fn [value element i]
+            (if (instance? yadat.dsl.FindAggregate element)
+              (let [f (util/resolve-symbol (:f element))
+                    constant-args (butlast (:args element))
+                    values (map #(get % i) tuples)]
+                (apply f (concat constant-args [values])))
+              value))
+          template
+          elements
+          (range))))
+
+(defn resolve-tuples
+  [elements sources rows]
+  (let [aggregate-indexes (keep-indexed
+                           (fn [i e] (if (instance? yadat.dsl.FindAggregate e)
+                                       i nil)) elements)
+        tuples (map (fn [r] (mapv #(resolve-find-element % sources r) elements))
+                    rows)]
+    (if (empty? aggregate-indexes)
+      tuples
+      (let [args (mapcat #(vector % nil) aggregate-indexes)
+            groups (vals (group-by #(apply assoc (conj args %)) tuples))]
+        (map (fn [tuples] (aggregate-tuples elements tuples)) groups)))))
 
 (defprotocol IInput
   (resolve-input [this value]))
@@ -128,32 +138,25 @@
 (extend-protocol IFindSpec
   yadat.dsl.FindScalar
   (resolve-find-spec [{:keys [element]} sources rows]
-    (resolve-find-element element sources (first rows)))
+    (ffirst (resolve-tuples [element] sources rows)))
 
   yadat.dsl.FindTuple
   (resolve-find-spec [{:keys [elements]} sources rows]
-    (mapv #(resolve-find-element % sources (first rows)) elements))
+    (first (resolve-tuples elements sources rows)))
 
   yadat.dsl.FindRelation
   (resolve-find-spec [{:keys [elements]} sources rows]
-    (let [tuples (map (fn [row]
-                        (mapv #(resolve-find-element % sources row) elements))
-                      rows)]
-      (if (some #(instance? yadat.dsl.FindAggregate %) elements)
-        (aggregate elements tuples)
-        tuples)))
+    (resolve-tuples elements sources rows))
 
   yadat.dsl.FindCollection
   (resolve-find-spec [{:keys [element]} sources rows]
-    (let [values (map #(resolve-find-element element sources %) rows)]
-      (if (instance? yadat.dsl.FindAggregate element)
-        (aggregate [element] (map vector values))
-        values))))
+    (let [tuples (resolve-tuples [element] sources rows)]
+      (map first tuples))))
 
 (extend-protocol IInput
   yadat.dsl.InputSource
-  (resolve-input [this value]
-    value)
+  (resolve-input [{:keys [src]} value]
+    {src value})
 
   yadat.dsl.InputScalar
   (resolve-input [{:keys [var]} value]
@@ -179,7 +182,7 @@
     (let [inputs (map resolve-input (:inputs this) values)
           predicate (fn [x] (= (type x) yadat.relation.Relation))
           {relations true sources false} (group-by predicate inputs)]
-      [sources relations])))
+      [(apply merge sources) relations])))
 
 (defn resolve-query [form input-values]
   (let [query (dsl/parse-query form)

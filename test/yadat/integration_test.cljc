@@ -7,13 +7,15 @@
   Also test performance. Yadat is a few magnitudes slower :D"
   (:require [clojure.edn :as edn]
             [clojure.java.io :as io]
+            [clojure.string :as string]
             #?(:clj [clojure.test :refer [deftest testing is]]
                :cljs [cljs.test :refer-macros [deftest testing is]])
             #?(:clj [clojure.pprint :as pprint]
                :cljs [cljs.pprint :as pprint])
             [datascript.core :as datascript]
             [datomic.api :as datomic]
-            [yadat.core :as yadat]))
+            [yadat.core :as yadat])
+  (:import (java.util.HashSet)))
 
 (def laureates
   (edn/read-string (slurp (io/resource "resources/nobel-prize-laureates.edn"))))
@@ -130,16 +132,16 @@
              :in [?fahrenheit]
              :where [[(- ?fahrenheit 32) ?f-32]
                      [(/ ?f-32 1.8) ?celsius]]}
-    :inputs-fn (fn [db] [212])}
+    :inputs-fn (fn [_] [212])}
 
    {:name "monsters"
     :query '{:find [(sum ?heads) .]
              :with [?monster]
              :in [[[?monster ?heads]]]}
-    :inputs-fn (fn [db] [[["Cerberus" 3]
-                          ["Medusa" 1]
-                          ["Cyclops" 1]
-                          ["Chimera" 1]]])}
+    :inputs-fn (fn [_] [[["Cerberus" 3]
+                         ["Medusa" 1]
+                         ["Cyclops" 1]
+                         ["Chimera" 1]]])}
    ])
 
 
@@ -154,11 +156,10 @@
   (apply q (concat [query] (inputs-fn db))))
 
 (defn compare-results [result1 result2]
-  ;; x -> x
-  ;; set/vec/list of list vector (tuple) -> frequencies of frequencies (?)
-  ;; set/vec/list of x -> frequencies
-  (= (frequencies result1) (frequencies result2))
-  )
+  (if (or (instance? java.util.HashSet result1)
+          (and (coll? result1) (not (map? result1))))
+    (= (frequencies result1) (frequencies result2))
+    (= result1 result2)))
 
 (defn test-case [case reference-engine engines]
   (let [reference-result (run-case reference-engine case)]
@@ -176,8 +177,15 @@
 (deftest integration-test
   (run-cases datomic [datascript yadat] cases))
 
+(run-case datascript (first (filter #(= (:name %) "custom aggregate") cases)))
 
-(run-case yadat (first (filter #(= (:name %) "monsters") cases)))
+
+(run-case yadat {:query '{:find [?a ?b]
+                          :where [[?a :name ?b]]
+                          }
+                 :inputs-fn (fn [db] [db])})
+
+
 
 (comment
   (run-case yadat (first (filter #(= (:name %) "custom aggregate") cases)))

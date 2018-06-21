@@ -81,4 +81,4 @@
                                            {:db db} eid)
                   (db/real-eid? db eid) [nil eid]
                   :else (throw (ex-info "Invalid eid" {:eid eid})))]
-    (resolve-pull-pattern (dsl/pull-pattern pattern) db eid)))
+    (resolve-pull-pattern (dsl/parse-pull-pattern pattern) db eid)))
