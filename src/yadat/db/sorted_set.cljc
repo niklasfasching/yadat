@@ -1,6 +1,7 @@
 (ns yadat.db.sorted-set
   (:require [yadat.db :as db]
-            [yadat.util :as util]))
+            [yadat.util :as util]
+            [yadat.schema :as schema]))
 
 (defn make-datom-comparator
   "Returns a comparator. Compares datom fields `i1`-`i3` in order using `cmp`.
@@ -38,15 +39,8 @@
       (assoc this :eid external-eid)
       this))
 
-  (is? [this raw-a x]
-    (let [a (if (db/reverse-ref? raw-a) (db/reversed-ref raw-a) raw-a)]
-      (case x
-        :many (= :db.cardinality/many (:db/cardinality (a schema)))
-        :unique-identity (= :db.unique/identity (:db/unique (a schema)))
-        :unique-value (= :db.unique/value (:db/unique (a schema)))
-        :reference (= :db.type/ref (:db/valueType (a schema)))
-        :component (:db/isComponent (a schema))
-        (throw (ex-info "Invalid value" {:a raw-a :x x})))))
+  (is? [this a x]
+    (schema/is? schema a x))
 
   (delete [this datom]
     (if datom

@@ -1,5 +1,6 @@
 (ns yadat.db
-  (:require [clojure.set :as set]))
+  (:require [clojure.set :as set]
+            [yadat.schema :as schema]))
 
 (defprotocol Db
   "A database for datoms."
@@ -101,20 +102,10 @@
                          resolved-eid)) resolved-eid avs)]
      [transaction eid])))
 
-(defn reverse-ref? [a]
-  (and (keyword? a) (= (first (name a)) \_)))
-
-(defn reversed-ref [a]
-  (if (reverse-ref? a)
-    (keyword (namespace a) (subs (name a) 1))
-    (keyword (namespace a) (str "_" (name a)))))
-
-(defn datom [db e a v]
-  (cond
-    (and (not (is? db a :reference))
-         (reverse-ref? a)) (throw (ex-info "Invalid reverse reference" {:a a}))
-    (reverse-ref? a) [v (reversed-ref a) e]
-    :else [e a v]))
+(defn datom [e a v]
+  (if (schema/reverse-ref? a)
+    [v (schema/reversed-ref a) e]
+    [e a v]))
 
 (defn retract-datom [db datom]
   (-> (delete db (first (select db datom)))))
@@ -138,7 +129,7 @@
       (cond
         empty-entity? [transaction nil]
         (and (nil? a) (nil? avs)) [(assoc transaction :db db) eid]
-        :else (recur (add-datom db (datom db eid a v)) avs)))))
+        :else (recur (add-datom db (datom eid a v)) avs)))))
 
 (defn add-entity
   "Add entity `e` to the `db` of `transaction`. Returns [transaction eid].
@@ -180,7 +171,7 @@
       (map? e) (let [[transaction eid] (add-entity transaction e)]
                  (recur transaction es (conj eids eid)))
       (sequential? e) (let [[op eid a v] e
-                            datom (datom db eid a v)
+                            datom (datom eid a v)
                             f (fn [db] (case op
                                          :db/add (add-datom db datom)
                                          :db/retract (retract-datom db datom)))

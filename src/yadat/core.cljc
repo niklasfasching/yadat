@@ -5,7 +5,8 @@
             [yadat.db.sorted-set]
             [yadat.util :as util]
             [yadat.query :as query]
-            [yadat.pull :as pull]))
+            [yadat.pull :as pull]
+            [yadat.schema :as schema]))
 
 (defn insert
   "Insert `entities` into `connection`. Modifies `connection`."
@@ -16,12 +17,13 @@
 
 (defn open
   "Create a new db of `type` with `schema`. Returns a connection.
+  `schema` format is defined through :schema/type key of `schema`.
   Optionally inserts `entities` into db.
   A connection is just an atom containing a db.
   By default the `type`s :minimal & :sorted-set are supported. More types
   can be added by extending `db/open`."
   ([type schema]
-   (atom (db/open type schema)))
+   (atom (db/open type (schema/create schema))))
   ([type schema entities]
    (let [db (atom (db/open type schema))]
      (insert db entities)

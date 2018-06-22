@@ -1,6 +1,7 @@
 (ns yadat.db.minimal
   (:require [yadat.db :as db]
-            [yadat.util :as util]))
+            [yadat.util :as util]
+            [yadat.schema :as schema]))
 
 (defrecord MinimalDb [set schema eid]
   db/Db
@@ -12,8 +13,7 @@
       (assoc this :eid external-eid)
       this))
   (is? [this a x]
-    (let [a (if (db/reverse-ref? a) (db/reversed-ref a) a)]
-      (boolean (some #{x} (a schema)))))
+    (schema/is? schema a x))
   (delete [this datom]
     (update-in this [:set] disj datom))
   (insert [this [e a v :as datom]]
@@ -30,6 +30,7 @@
               *print-level* nil
               *print-namespace-maps* nil]
       (prn-str this))))
+
 (defmethod db/open :minimal [_ schema]
   (->MinimalDb #{} schema 0))
 
